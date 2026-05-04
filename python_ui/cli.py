@@ -16,6 +16,7 @@ from solitaire import (
     RandomPolicy,
     SolverConfig,
     format_moves,
+    is_no_op_move,
     move_from_notation,
     new_game,
 )
@@ -138,6 +139,23 @@ def _print_moves(state: GameState) -> None:
     print(format_moves(moves))
 
 
+def _print_cheat_moves(state: GameState) -> None:
+    """Print only moves that make progress (non-no-op moves)."""
+    moves = state.legal_moves()
+    if not moves:
+        print("No legal moves.")
+        return
+    
+    progress_moves = [move for move in moves if not is_no_op_move(state, move)]
+    
+    if not progress_moves:
+        print("No moves that make progress (all moves are no-ops).")
+        return
+    
+    print(f"Moves that make progress ({len(progress_moves)}/{len(moves)}):")
+    print(format_moves(progress_moves))
+
+
 def _check_game_over(state: GameState) -> str:
     """Check if the game is over and return status."""
     won = state.is_won()
@@ -149,6 +167,40 @@ def _check_game_over(state: GameState) -> str:
         return "Game lost! ✗"
     else:
         return "Game in progress."
+
+
+def _handle_win(session: Session) -> bool:
+    """
+    Check if the game is won and display celebratory message.
+    Returns True if the game was won.
+    """
+    if not session.state.is_won():
+        return False
+    
+    print("\n" + "=" * 50)
+    print("🎉 🎉 🎉  CONGRATULATIONS! YOU WON!  🎉 🎉 🎉")
+    print("=" * 50)
+    print(f"Completed in {session.state.turn_count} turns with {len(session.history)} moves!")
+    print("\nType 'reset' or 'reset <seed>' to play again, or 'quit' to exit.")
+    print("=" * 50 + "\n")
+    return True
+
+
+def _handle_loss(session: Session) -> bool:
+    """
+    Check if the game is lost and display consolation message.
+    Returns True if the game was lost.
+    """
+    if not session.state.is_lost():
+        return False
+    
+    print("\n" + "=" * 50)
+    print("Game Over - No winning moves available")
+    print("=" * 50)
+    print(f"You played {len(session.history)} moves before reaching a dead end.")
+    print("\nType 'reset' or 'reset <seed>' to try again, or 'quit' to exit.")
+    print("=" * 50 + "\n")
+    return True
 
 
 def _infer_foundation_move(state: GameState, notation: str) -> Optional[str]:
@@ -286,21 +338,28 @@ def interactive_loop(session: Session) -> None:
                 return
             if head in {"help", "h", "?"}:
                 print(
-                    "Commands: state, board, moves, history, move <n|notation>, status, auto greedy, auto random [seed], solve, reset [seed], quit"
+                    "Commands: state, board, moves, cheat, history, move <n|notation>, status, auto greedy, auto random [seed], solve, reset [seed], quit"
                 )
             elif head in {"state", "s"}:
                 print(_describe_state(session.state, session.use_color))
             elif head == "board":
                 print(_describe_board(session.state, session.use_color))
             elif head in {"status", "gameover"}:
+                if _handle_loss(session):
+                    continue
                 print(_check_game_over(session.state))
             elif head in {"moves", "m"}:
                 _print_moves(session.state)
+            elif head == "cheat":
+                _print_cheat_moves(session.state)
             elif head in {"history", "hist"}:
                 print("\n".join(_history_lines(session)))
             elif head == "move":
                 session.state = _apply_choice_and_record(session, tail)
                 print(_render_state_text(session.state, session.use_color))
+                if _handle_win(session):
+                    # Clear for next command prompt after win message
+                    continue
             elif head == "auto":
                 mode, _, mode_tail = tail.partition(" ")
                 if not mode:
@@ -328,6 +387,8 @@ def interactive_loop(session: Session) -> None:
             else:
                 session.state = _apply_choice_and_record(session, command)
                 print(_render_state_text(session.state, session.use_color))
+                if _handle_win(session):
+                    continue
         except Exception as exc:  # noqa: BLE001 - surface errors in the UI
             print(f"error: {exc}")
 

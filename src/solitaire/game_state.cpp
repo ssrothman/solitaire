@@ -1,5 +1,6 @@
 #include "solitaire/game_state.h"
 #include "solitaire/shuffle.h"
+#include "solitaire/util/move_analysis.h"
 #include <algorithm>
 #include <sstream>
 
@@ -263,13 +264,25 @@ bool GameState::is_won() const {
 }
 
 bool GameState::is_lost() const {
-    // No legal moves and stock exhausted
-    if (!_stock.empty()) {
-        return false;  // Can still draw
+    // If we've won, we haven't lost
+    if (is_won()) {
+        return false;
     }
 
     MoveList moves = legal_moves();
-    return moves.empty();
+    if (moves.empty()) {
+        return true;  // No legal moves = lost
+    }
+
+    // Check if all remaining moves are no-ops (no progress possible)
+    for (const auto& move : moves) {
+        if (!util::is_no_op_move(*this, move)) {
+            return false;  // Found a move that makes progress
+        }
+    }
+
+    // All moves are no-ops = lost
+    return true;
 }
 
 // ============================================================================

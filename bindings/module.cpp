@@ -8,6 +8,7 @@
 #include "solitaire/solvers/random_policy.h"
 #include "solitaire/solvers/solver.h"
 #include "solitaire/util/move_notation.h"
+#include "solitaire/util/move_analysis.h"
 
 namespace py = pybind11;
 
@@ -223,6 +224,8 @@ PYBIND11_MODULE(_solitaire_binding, m) {
           py::arg("seed"), py::arg("cfg") = solitaire::GameConfig());
     m.def("move_to_notation", &solitaire::util::move_to_notation);
     m.def("move_from_notation", &solitaire::util::move_from_notation);
+    m.def("is_no_op_move", &solitaire::util::is_no_op_move,
+          py::arg("state"), py::arg("move"));
 
     py::class_<solitaire::solvers::IPolicy, PyIPolicy, std::shared_ptr<solitaire::solvers::IPolicy>>(m, "IPolicy")
         .def("choose_move", &solitaire::solvers::IPolicy::choose_move)
