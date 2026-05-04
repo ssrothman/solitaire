@@ -3,19 +3,13 @@
 namespace solitaire::util {
 
 bool moves_equivalent(const GameState& state, const Move& m1, const Move& m2) {
-    // Quick check: same move
-    if (m1.source == m2.source && m1.target == m2.target && m1.kind == m2.kind &&
-        m1.card_count == m2.card_count) {
-        return true;
-    }
-
-    // Apply both moves to copies of the state
-    // If either move is illegal, they're not equivalent
+    // Apply both moves to copies of the state and compare the resulting positions.
+    // If either move is illegal, they're not equivalent.
     try {
         GameState s1 = state.apply_move(m1);
         GameState s2 = state.apply_move(m2);
         
-        // Check if resulting states are identical
+        // Compare the full resulting game state.
         return s1 == s2;
     } catch (...) {
         // If either move is illegal, they're not equivalent

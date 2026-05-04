@@ -305,6 +305,41 @@ bool GameState::operator==(const GameState& other) const {
     return true;
 }
 
+bool GameState::same_position(const GameState& other) const {
+    // Compare tableau
+    for (int i = 0; i < NUM_TABLEAU_PILES; ++i) {
+        if (_tableau_face_up[i] != other._tableau_face_up[i]) {
+            return false;
+        }
+        if (_tableau_face_down[i] != other._tableau_face_down[i]) {
+            return false;
+        }
+    }
+
+    // Compare foundation
+    for (int i = 0; i < NUM_FOUNDATIONS; ++i) {
+        if (_foundation[i] != other._foundation[i]) {
+            return false;
+        }
+    }
+
+    // Compare stock and waste
+    if (_stock != other._stock) {
+        return false;
+    }
+    if (_waste != other._waste) {
+        return false;
+    }
+
+    // Compare configuration because it changes move semantics.
+    if (_config.cards_per_draw != other._config.cards_per_draw ||
+        _config.unlimited_recycle != other._config.unlimited_recycle) {
+        return false;
+    }
+
+    return true;
+}
+
 std::size_t GameState::hash() const {
     std::size_t h = 0;
 

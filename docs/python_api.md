@@ -10,6 +10,12 @@ The `solitaire` package wraps the C++ library and exposes:
 - Solver APIs: `CompleteDfsSolver`, `HeuristicRunner`, `GreedyPolicy`, `RandomPolicy`
 - Utility helpers: `new_game()`, `solve_game()`, `run_greedy()`, `run_random()`, `format_moves()`
 
+Notes:
+
+- `new_game(seed, cfg)` is the most convenient way to create a playable state.
+- `GameState.from_deck(deck, cfg)` expects a deck of `Card` objects, not integer placeholders.
+- The package also exposes `deal_game(seed, cfg)` and `shuffle_deck(seed)` for lower-level workflows.
+
 Example:
 
 ```python
@@ -45,3 +51,4 @@ Useful commands:
 
 - The package supports editable installs from a checkout and an installed `solitaire-ui` entry point.
 - The CLI prints canonical move notation, so move history is stable across input forms.
+- The `board` command is intentionally compact and text-only; it is meant for quick inspection rather than a full graphical render.

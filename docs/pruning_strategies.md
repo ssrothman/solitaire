@@ -18,15 +18,18 @@ This strategy is enabled by default through `SolverConfig.enable_move_equivalenc
 
 ### No-Op Pruning
 
-No-op pruning removes moves that leave the game state unchanged.
+No-op pruning removes moves that do not make genuine progress and do not expose any new useful move choices.
 
 The implementation is intentionally conservative:
 
 - it first checks that the move is legal,
 - it applies the move to a copy of the state,
-- and it only prunes the move if the resulting state compares equal to the original.
+- it keeps the move if it reveals a hidden tableau card, moves cards to foundation, or opens a useful waste move,
+- it treats stock milling as a no-op only when repeated draw/recycle cycles return to an already seen gameplay position without uncovering new useful moves.
 
 This is controlled by `SolverConfig.enable_no_op_pruning`.
+
+The helper also uses `GameState::same_position()` for gameplay-state comparisons that ignore cycle metadata.
 
 ## Composition
 

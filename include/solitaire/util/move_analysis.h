@@ -7,7 +7,7 @@
 namespace solitaire::util {
 
 // Return true if applying move leaves the game state unchanged.
-// This is intentionally conservative and only prunes exact no-ops.
+// This is intentionally conservative and also handles no-progress loops.
 bool is_no_op_move(const GameState& state, const Move& move);
 
 }  // namespace solitaire::util

@@ -96,6 +96,9 @@ public:
     bool operator==(const GameState& other) const;
     bool operator!=(const GameState& other) const { return !(*this == other); }
 
+    // Compare only gameplay-relevant state, ignoring turn/cycle metadata.
+    bool same_position(const GameState& other) const;
+
     // Hash for visited-state tracking in solvers
     // Includes stock cycle position to avoid false merges
     std::size_t hash() const;

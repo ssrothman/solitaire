@@ -28,7 +28,8 @@ print(result.stats.moves_pruned)
 
 - Use a node limit when exploring harder positions.
 - Keep move-equivalence pruning enabled unless you are debugging raw search order.
-- Leave no-op pruning disabled unless you are specifically experimenting with it.
+- Leave no-op pruning enabled only if you want the more aggressive no-progress filtering; it is conservative, but it is still more opinionated than move-equivalence pruning.
+- If you are debugging raw search behavior, disable both pruning flags first.
 
 ## Heuristic Runner
 
@@ -51,5 +52,12 @@ Recommended sequence:
 1. Build or install the package in the `dev` environment.
 2. Run a small benchmark on a handful of seeds.
 3. Compare node counts with pruning on and off.
+
+The current pruning pipeline is:
+
+1. Move-equivalence pruning
+2. No-op / no-progress pruning
+
+This keeps the solver conservative while still removing obvious loops and duplicate outcomes.
 
 The current implementation keeps pruning conservative so correctness remains easy to reason about.

@@ -42,7 +42,7 @@ pip install -e .
 #include "solitaire/solvers/complete_dfs.h"
 
 auto deck = solitaire::shuffle_deck(12345);  // seeded
-auto state = solitaire::deal(deck);
+auto state = solitaire::GameState::from_deck(deck, solitaire::GameConfig());
 auto result = solitaire::CompleteDfsSolver().solve(state);
 if (result.solvable) {
     std::cout << "Found solution: " << result.solution.size() << " moves\n";
@@ -52,16 +52,13 @@ if (result.solvable) {
 ### Python Usage
 
 ```python
-from solitaire import GameState, GameConfig, CompleteDfsSolver
-import random
+import solitaire
 
-cfg = GameConfig(cards_per_draw=3, unlimited_recycle=True)
-deck = list(range(52))
-random.shuffle(deck)
-state = GameState.from_deck(deck, cfg)
+cfg = solitaire.GameConfig(cards_per_draw=3, unlimited_recycle=True)
+state = solitaire.new_game(seed=42, cfg=cfg)
 
-solver = CompleteDfsSolver()
-result = solver.solve(state)
+solver = solitaire.CompleteDfsSolver()
+result = solver.solve(state, solitaire.SolverConfig())
 print(f"Solvable: {result.solvable}, Nodes: {result.stats.nodes_explored}")
 ```
 
@@ -107,18 +104,19 @@ include/solitaire/
 ├── solvers/
 │   ├── solver.h
 │   ├── complete_dfs.h
-│   ├── policy.h
 │   ├── greedy_policy.h
 │   ├── random_policy.h
 │   └── policy_template.h
 └── util/
     ├── move_notation.h
-    └── move_pruning.h
+   ├── move_equivalence.h
+   ├── move_analysis.h
+   └── pruning.h
 
 src/solitaire/ (implementations)
 tests/cpp/    (C++ tests)
 bindings/     (pybind11 module)
-python/       (Python package)
+solitaire/    (Python package)
 python_ui/    (terminal UI)
 ```
 
