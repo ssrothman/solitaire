@@ -147,14 +147,19 @@ def _print_cheat_moves(state: GameState) -> None:
         print("No legal moves.")
         return
     
-    progress_moves = [move for move in moves if not is_no_op_move(state, move)]
+    progress_moves = [
+        (index, move)
+        for index, move in enumerate(moves, start=1)
+        if not is_no_op_move(state, move)
+    ]
     
     if not progress_moves:
         print("No moves that make progress (all moves are no-ops).")
         return
     
     print(f"Moves that make progress ({len(progress_moves)}/{len(moves)}):")
-    print(format_moves(progress_moves))
+    for index, move in progress_moves:
+        print(f"{index:>2}. {move.to_string()}")
 
 
 def _check_game_over(state: GameState) -> str:
