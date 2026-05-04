@@ -1,0 +1,39 @@
+# Build directories
+build/
+cmake-build-*/
+dist/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Python
+venv/
+env/
+.venv
+
+# Generated files
+*.o
+*.a
+*.so
+*.dylib

@@ -1,0 +1,117 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+
+\title{Solitaire Library}
+\author{Simon Rothman}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+The plan is to implement a solitaire library in C++.
+This library will provide solitaire-playing functionality including game logic, and card management. 
+The idea will be to have the possibility of:
+\begin{itemize}
+    \item Playing solitaire games
+    \item Solving whether a given solitaire game is solvable
+    \item Testing different solitaire strategies and heuristics
+\end{itemize}
+The library will be fast, efficient, and easily extensible. 
+We will also provide python bindings to allow for easy integration with othe projects, and easier design of a GUI in python rather than C++.
+
+\section{The game of solitaire}
+
+By ``solitaire'' I mean the classic game. 
+The baisc setup:
+\begin{itemize}
+    \item A standard deck of 52 cards is used.
+    \item The cards are shuffled and dealt into seven piles, with the first pile containing one card, the second pile containing two cards, and so on until the seventh pile contains seven cards. 
+    \item The top card of each pile is face up, while the rest are face down.
+    \item The remaining cards form a draw pile.
+\end{itemize}
+Cards can be moved between piles according to the following rules:
+\begin{itemize}
+    \item Cards can be moved from one pile to another if the card being moved is one rank lower and of the opposite color than the top card of the destination pile. 
+    \item Cards can be moved to the foundation piles if they are of the same suit and one rank higher than the top card of the foundation pile. 
+    \item Aces can be moved to the foundation piles at any time.
+    \item Kings can be moved to an empty pile.
+    \item Entire sequences of cards can be moved from one pile to another if they follow the above rules.
+    \item Cards can be turned over from the draw pile to the waste pile, and the top card of the waste pile can be moved to a pile or a foundation pile if it follows the above rules.
+    \item The number of cards that can be drawn from the draw pile at a time can be configured (e.g., one card at a time or three cards at a time). 
+    The default will be three cards at a time.
+\end{itemize}
+Any face-down cards that are revealed by moving cards from the piles will be turned face up and become available for play.
+
+The game is won when all cards are moved to the foundation piles in the correct order (from Ace to King).
+The game is lost if there are no more valid moves available besides milling through the draw pile without making any progress.
+
+\section{Complete solver}
+
+The complete solver will be a brute-force algorithm that explores all possible moves from the initial game state.
+It will use a depth-first search approach, where we will recursively explore each possible move and backtrack if we reach a dead end.
+To avoid infinite loops, we will keep track of the game states we have already visited using a hash set.
+The solver will return true if it finds a winning sequence of moves, and false if it exhausts all possibilities without finding a solution.
+
+It will be important for the game library and solver implementation to be as efficient as possible so that we can solve games in a reasonable amount of time.
+
+\section{Heuristic solvers}
+
+The library should be set up in a way that allows easy implementation of heuristic solvers.
+These heuristic solves will use various strategies to play the game without any extra knowledge of the game state (ie the face-down cards) and without backtracking (ie exactly as a human would play the game).
+This will allow us to test different strategies and heuristics to see which ones are more effective at winning the game.
+Some possible heuristics to implement include:
+
+\subsection{Greedy heuristic}
+
+The greedy heuristic will always make available moves, with the following prioritization:
+\begin{enumerate}
+    \item Move cards to the foundation piles from the tableau piles.
+    \item Move cards to the foundation piles from the waste pile.
+    \item Move cards from the tableau piles to other tableau piles to reveal face-down.
+    \item Move cards from the waste pile to the tableau piles
+    \item Turn up the next set of cards from the daw pile.
+\end{enumerate}
+
+\subsection{Random heuristic}
+The random heuristic will randomly select from the available moves at each step.
+
+\subsection{Custom heuristics}
+We can also implement custom heuristics that use more complex strategies, such as prioritizing certain cards or certain piles, or using some form of look-ahead to evaluate the potential consequences of each move before making a decision.
+
+\section{Python bindings}
+
+To make the library more accessible and easier to use, we will provide python bindings using pybind11.
+This will allow users to easily integrate the solitaire library into their python projects, and also make it easier to design a GUI for the game in python rather than C++ (because GUIs are generally easier to design in python than in C++).
+The python bindings will provide access to all the functionality of the C++ library, including game logic, card management, and the solvers.
+The python GUI will allow users to play the game interactively, and also provide options for using the solvers to find solutions or test different heuristics.
+
+\section{Implementation details}
+
+The implementation will be done in C++ for performance reasons, and we will use pybind11 to create the python bindings.
+The library will be structured in a modular way, with separate classes for the game logic, card management, and solvers.
+We will need logic to:
+\begin{itemize}
+    \item Represent the game state, including the tableau piles, foundation piles, draw pile, and waste pile.
+    \item Generate all possible moves from a given game state.
+    \item Detect which possible moves are equivalent to avoid redundant exploration in the solver.
+    \item Detect which possible moves do not have any appreciable impact on the game state to avoid exploring them in the solver.
+    \item Apply a move to a game state to produce a new game state.
+    \item Detect game over conditions (both win and loss).
+\end{itemize}
+
+The complete solver will be implemented using a depth-first search approach, and we will use a hash set to keep track of visited game states to avoid infinite loops.
+The heuristic solvers will be implemented as separate classes that use the game logic to make decisions based on the available moves and the chosen heuristic strategy.
+
+Compilation and library management will be handled using CMake, which will allow for easy building and integration of the library into other projects.
+The implementation strategy will be as efficient as possible, while still being readable, maintainable, and extensible.
+
+We will always use include guards rather than #pramga once because they are more widely supported and not subject to weird edge case bugs that can arise with #pragma once.
+
+\end{document}
