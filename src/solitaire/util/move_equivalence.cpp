@@ -1,21 +1,20 @@
 #include "solitaire/util/move_equivalence.h"
-#include "solitaire/util/board_equivalence.h"
 
 namespace solitaire::util {
 
 bool moves_equivalent(const GameState& state, const Move& m1, const Move& m2) {
     // Apply both moves to copies of the state and compare the resulting positions.
     // If either move is illegal, they're not equivalent.
-    if (!state.is_legal(m1) || !state.is_legal(m2)) {
+    try {
+        GameState s1 = state.apply_move(m1);
+        GameState s2 = state.apply_move(m2);
+        
+        // Compare the full resulting game state.
+        return s1 == s2;
+    } catch (...) {
+        // If either move is illegal, they're not equivalent
         return false;
     }
-    
-    GameState s1 = state.apply_move(m1);
-    GameState s2 = state.apply_move(m2);
-    
-    // Compare canonical board states, so tableau rearrangements that do not
-    // reveal a face-down card are treated as equivalent.
-    return canonicalize_board_state(s1) == canonicalize_board_state(s2);
 }
 
 std::vector<std::size_t> find_move_equivalence_classes(const GameState& state,

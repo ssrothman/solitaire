@@ -32,7 +32,6 @@ target_sources(solitaire_core PRIVATE
     src/solitaire/solvers/greedy_policy.cpp
     src/solitaire/solvers/random_policy.cpp
     src/solitaire/util/move_notation.cpp
-    src/solitaire/util/board_equivalence.cpp
     src/solitaire/util/move_equivalence.cpp
     src/solitaire/util/move_analysis.cpp
 )
@@ -70,10 +69,6 @@ if(BUILD_TESTS)
         add_executable(test_move_notation tests/cpp/test_move_notation.cpp)
         target_link_libraries(test_move_notation PRIVATE solitaire_core Catch2::Catch2WithMain)
         add_test(NAME MoveNotation COMMAND test_move_notation)
-
-        add_executable(test_board_equivalence tests/cpp/test_board_equivalence.cpp)
-        target_link_libraries(test_board_equivalence PRIVATE solitaire_core Catch2::Catch2WithMain)
-        add_test(NAME BoardEquivalence COMMAND test_board_equivalence)
 
         add_executable(test_move_equivalence tests/cpp/test_move_equivalence.cpp)
         target_link_libraries(test_move_equivalence PRIVATE solitaire_core Catch2::Catch2WithMain)
