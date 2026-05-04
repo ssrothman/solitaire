@@ -5,44 +5,43 @@
 
 namespace {
 
-struct MoveKey {
-    solitaire::MoveKind kind;
-    solitaire::PileId source;
-    solitaire::PileId target;
-    int card_count;
+bool move_less(const solitaire::Move& a, const solitaire::Move& b) {
+    if (a.kind != b.kind) return a.kind < b.kind;
+    if (a.source.raw_data() != b.source.raw_data()) return a.source.raw_data() < b.source.raw_data();
+    if (a.target.raw_data() != b.target.raw_data()) return a.target.raw_data() < b.target.raw_data();
+    return a.card_count < b.card_count;
+}
 
-    bool operator<(const MoveKey& other) const {
-        if (kind != other.kind) return kind < other.kind;
-        if (source.raw_data() != other.source.raw_data()) return source.raw_data() < other.source.raw_data();
-        if (target.raw_data() != other.target.raw_data()) return target.raw_data() < other.target.raw_data();
-        return card_count < other.card_count;
-    }
-
-    bool operator==(const MoveKey& other) const {
-        return kind == other.kind && source == other.source && target == other.target && card_count == other.card_count;
-    }
-};
-
-MoveKey to_key(const solitaire::Move& move) {
-    return {move.kind, move.source, move.target, move.card_count};
+bool move_equal(const solitaire::Move& a, const solitaire::Move& b) {
+    return a.kind == b.kind &&
+           a.source == b.source &&
+           a.target == b.target &&
+           a.card_count == b.card_count;
 }
 
 bool no_new_moves_after_move(const solitaire::GameState& before,
     const solitaire::Move& move,
     const solitaire::GameState& after);
 
-std::vector<MoveKey> normalize_moves(const solitaire::MoveList& moves) {
-    std::vector<MoveKey> keys;
+std::vector<solitaire::Move> normalize_moves(const solitaire::MoveList& moves) {
+    std::vector<solitaire::Move> keys;
     keys.reserve(moves.size());
     for (const auto& move : moves) {
-        keys.push_back(to_key(move));
+        keys.push_back(move);
     }
-    std::sort(keys.begin(), keys.end());
+    std::sort(keys.begin(), keys.end(), move_less);
     return keys;
 }
 
 bool same_move_set(const solitaire::MoveList& a, const solitaire::MoveList& b) {
-    return normalize_moves(a) == normalize_moves(b);
+    const auto normalized_a = normalize_moves(a);
+    const auto normalized_b = normalize_moves(b);
+
+    if (normalized_a.size() != normalized_b.size()) {
+        return false;
+    }
+
+    return std::equal(normalized_a.begin(), normalized_a.end(), normalized_b.begin(), move_equal);
 }
 
 bool is_waste_origin_move(const solitaire::Move& move) {

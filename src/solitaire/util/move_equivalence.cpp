@@ -5,16 +5,15 @@ namespace solitaire::util {
 bool moves_equivalent(const GameState& state, const Move& m1, const Move& m2) {
     // Apply both moves to copies of the state and compare the resulting positions.
     // If either move is illegal, they're not equivalent.
-    try {
-        GameState s1 = state.apply_move(m1);
-        GameState s2 = state.apply_move(m2);
-        
-        // Compare the full resulting game state.
-        return s1 == s2;
-    } catch (...) {
-        // If either move is illegal, they're not equivalent
+    if (!state.is_legal(m1) || !state.is_legal(m2)) {
         return false;
     }
+    
+    GameState s1 = state.apply_move(m1);
+    GameState s2 = state.apply_move(m2);
+    
+    // Compare the full resulting game state.
+    return s1 == s2;
 }
 
 std::vector<std::size_t> find_move_equivalence_classes(const GameState& state,
