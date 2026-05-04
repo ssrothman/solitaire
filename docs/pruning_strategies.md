@@ -24,8 +24,8 @@ The implementation is intentionally conservative:
 
 - it first checks that the move is legal,
 - it applies the move to a copy of the state,
-- it keeps the move if it reveals a hidden tableau card, moves cards to foundation, or opens a useful waste move,
-- it treats stock milling as a no-op only when repeated draw/recycle cycles return to an already seen gameplay position without uncovering new useful moves.
+- it keeps the move if it reveals a hidden tableau card, moves cards to foundation, or opens a waste-origin move,
+- it treats a stock draw as a no-op only when, no matter how many further draws or recycles are executed, the resulting stock cycle never exposes any waste-origin move.
 
 This is controlled by `SolverConfig.enable_no_op_pruning`.
 

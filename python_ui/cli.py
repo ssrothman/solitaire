@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import secrets
 from dataclasses import dataclass
 from typing import Optional
 
@@ -379,7 +380,7 @@ def interactive_loop(session: Session) -> None:
                 if result.solution:
                     print(format_moves(result.solution))
             elif head == "reset":
-                seed = session.seed if not tail else int(tail)
+                seed = secrets.randbelow(2**31) if not tail else int(tail)
                 session.seed = seed
                 session.state = new_game(seed, session.cfg)
                 session.history.clear()

@@ -27,6 +27,10 @@ MoveKey to_key(const solitaire::Move& move) {
     return {move.kind, move.source, move.target, move.card_count};
 }
 
+bool no_new_moves_after_move(const solitaire::GameState& before,
+    const solitaire::Move& move,
+    const solitaire::GameState& after);
+
 std::vector<MoveKey> normalize_moves(const solitaire::MoveList& moves) {
     std::vector<MoveKey> keys;
     keys.reserve(moves.size());
@@ -41,13 +45,14 @@ bool same_move_set(const solitaire::MoveList& a, const solitaire::MoveList& b) {
     return normalize_moves(a) == normalize_moves(b);
 }
 
-bool is_non_stock_move(const solitaire::Move& move) {
-    return move.kind != solitaire::MoveKind::StockDraw && move.kind != solitaire::MoveKind::StockRecycle;
+bool is_waste_origin_move(const solitaire::Move& move) {
+    return move.kind == solitaire::MoveKind::WasteToTableau ||
+           move.kind == solitaire::MoveKind::WasteToFoundation;
 }
 
-bool has_non_stock_moves(const solitaire::MoveList& moves) {
+bool has_waste_origin_moves(const solitaire::MoveList& moves) {
     return std::any_of(moves.begin(), moves.end(), [](const solitaire::Move& move) {
-        return is_non_stock_move(move);
+        return is_waste_origin_move(move);
     });
 }
 
@@ -60,7 +65,8 @@ std::optional<solitaire::Move> inverse_if_reversible(const solitaire::Move& move
         solitaire::PileId(solitaire::PileKind::Tableau, move.target.index()),
         solitaire::PileId(solitaire::PileKind::Tableau, move.source.index()),
         solitaire::MoveKind::TableauToTableau,
-        move.card_count);
+        move.card_count
+    );
 }
 
 bool makes_progress(const solitaire::GameState& before,
@@ -88,6 +94,17 @@ bool makes_progress(const solitaire::GameState& before,
     return false;
 }
 
+bool is_non_stock_no_op(const solitaire::GameState& state, const solitaire::Move& move, const solitaire::GameState& next) {
+    // If the move makes progress, it is not a no-op
+    if (makes_progress(state, move, next)) {
+        return false;
+    }
+
+    // If the move doesn't make progress,
+    // Then we check whether it reveals other possible moves
+    return no_new_moves_after_move(state, move, next);
+}
+
 bool is_stock_cycle_no_op(const solitaire::GameState& original_state,
                           const solitaire::GameState& start_after_move) {
     solitaire::GameState current = start_after_move;
@@ -96,7 +113,7 @@ bool is_stock_cycle_no_op(const solitaire::GameState& original_state,
 
     while (true) {
         auto legal = current.legal_moves();
-        if (has_non_stock_moves(legal)) {
+        if (has_waste_origin_moves(legal)) {
             return false;
         }
 
@@ -179,24 +196,25 @@ bool no_new_moves_after_move(const solitaire::GameState& before,
 namespace solitaire::util {
 
 bool is_no_op_move(const GameState& state, const Move& move) {
+    // If the move is illegal, it's not a no-op.
     if (!state.is_legal(move)) {
         return false;
     }
 
     GameState next = state.apply_move(move);
+
+    // If the move leaves the position unchanged, it's a no-op.
     if (next == state) {
         return true;
     }
 
-    if (makes_progress(state, move, next)) {
-        return false;
-    }
 
+    // If the move is a stock draw/recycle then we need a more complicated check...
     if (move.kind == MoveKind::StockDraw || move.kind == MoveKind::StockRecycle) {
         return is_stock_cycle_no_op(state, next);
+    } else {
+        return is_non_stock_no_op(state, move, next);
     }
-
-    return no_new_moves_after_move(state, move, next);
 }
 
 }  // namespace solitaire::util

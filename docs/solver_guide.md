@@ -28,7 +28,7 @@ print(result.stats.moves_pruned)
 
 - Use a node limit when exploring harder positions.
 - Keep move-equivalence pruning enabled unless you are debugging raw search order.
-- Leave no-op pruning enabled only if you want the more aggressive no-progress filtering; it is conservative, but it is still more opinionated than move-equivalence pruning.
+- Leave no-op pruning enabled only if you want the more aggressive no-progress filtering; it is conservative, but it is still more opinionated than move-equivalence pruning. In particular, stock draws are treated as no-ops only when they never expose a waste-origin move, even after additional draws or recycles.
 - If you are debugging raw search behavior, disable both pruning flags first.
 
 ## Heuristic Runner
@@ -58,6 +58,6 @@ The current pruning pipeline is:
 1. Move-equivalence pruning
 2. No-op / no-progress pruning
 
-This keeps the solver conservative while still removing obvious loops and duplicate outcomes.
+This keeps the solver conservative while still removing obvious loops and duplicate outcomes. For stock milling, the no-op check only filters draws that never uncover a waste-to-tableau or waste-to-foundation opportunity.
 
 The current implementation keeps pruning conservative so correctness remains easy to reason about.
