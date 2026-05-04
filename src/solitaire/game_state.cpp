@@ -453,7 +453,7 @@ void GameState::_move_tableau_to_tableau(int src_pile, int tgt_pile,
 
     // Move cards
     for (int i = 0; i < card_count; ++i) {
-        tgt.push_back(src.front());
+        tgt.push_front(src.front());
         src.pop_front();
     }
 
