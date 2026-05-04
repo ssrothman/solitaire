@@ -86,6 +86,45 @@ TEST_CASE("Removing last face-up tableau card reveals hidden card") {
     REQUIRE(next.tableau_top(1) == Card(Suit::Clubs, Rank::King));
 }
 
+TEST_CASE("Moving multiple tableau cards preserves their order") {
+    auto deck = make_ordered_deck();
+
+    auto place = [&](std::size_t position, Suit suit, Rank rank) {
+        const Card desired(suit, rank);
+        for (std::size_t i = 0; i < deck.size(); ++i) {
+            if (deck[i] == desired) {
+                std::swap(deck[position], deck[i]);
+                return;
+            }
+        }
+    };
+
+    place(0, Suit::Hearts, Rank::Four);   // T0 top: 4♥
+    place(2, Suit::Clubs, Rank::Three);    // T1 top: 3♣
+    place(5, Suit::Spades, Rank::Five);    // T2 top: 5♠
+
+    GameState state = GameState::from_deck(deck, GameConfig());
+
+    Move move_to_tableau(
+        PileId(PileKind::Tableau, 1),
+        PileId(PileKind::Tableau, 0),
+        MoveKind::TableauToTableau,
+        1);
+    REQUIRE(state.is_legal(move_to_tableau));
+    state = state.apply_move(move_to_tableau);
+
+    Move move_run(
+        PileId(PileKind::Tableau, 0),
+        PileId(PileKind::Tableau, 2),
+        MoveKind::TableauToTableau,
+        2);
+    REQUIRE(state.is_legal(move_run));
+
+    GameState next = state.apply_move(move_run);
+    const std::string text = next.to_string();
+    REQUIRE(text.find("T2: 3♣ 4♥ 5♠ [2 hidden]") != std::string::npos);
+}
+
 TEST_CASE("Move structural validation") {
     SECTION("Valid move shapes") {
         REQUIRE(Move(PileId(PileKind::Tableau, 0),

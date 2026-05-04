@@ -26,6 +26,10 @@ std::optional<PileId> parse_pile(std::string_view text) {
     if (text == "W") {
         return PileId(PileKind::Waste, 0);
     }
+    if (text == "F") {
+        // Bare "F" is accepted as a placeholder; will be inferred later
+        return PileId(PileKind::Foundation, 0);
+    }
     if (text.size() < 2) {
         return std::nullopt;
     }
@@ -101,14 +105,21 @@ std::string move_to_notation(const Move& move) {
             return Move(PileId(PileKind::Stock, 0), PileId(PileKind::Waste, 0), MoveKind::StockDraw, *count);
         }
 
-        constexpr std::string_view arrow = "→";
-        auto arrow_pos = notation.find(arrow);
+        // Try to find arrow: first try "->" (2 bytes) then "→" (UTF-8, 3 bytes)
+        size_t arrow_pos = notation.find("->");
+        size_t arrow_len = 2;
         if (arrow_pos == std::string_view::npos) {
-            return std::nullopt;
+            // Try UTF-8 arrow: the literal "→" which is 3 bytes in UTF-8
+            constexpr std::string_view utf8_arrow = "→";
+            arrow_pos = notation.find(utf8_arrow);
+            arrow_len = utf8_arrow.size();  // 3 bytes
+            if (arrow_pos == std::string_view::npos) {
+                return std::nullopt;
+            }
         }
 
         std::string_view src_text = notation.substr(0, arrow_pos);
-        std::string_view rest = notation.substr(arrow_pos + arrow.size());
+        std::string_view rest = notation.substr(arrow_pos + arrow_len);
 
         int card_count = 1;
         auto count_pos = rest.find('(');

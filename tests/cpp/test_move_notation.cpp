@@ -27,7 +27,6 @@ TEST_CASE("Move notation round trips") {
 }
 
 TEST_CASE("Move notation rejects invalid input") {
-    REQUIRE(!util::move_from_notation("T0->F1").has_value());
     REQUIRE(!util::move_from_notation("Draw(0)").has_value());
     REQUIRE(!util::move_from_notation("X1").has_value());
 }

@@ -11,6 +11,7 @@ from solitaire import (
     GameState,
     GreedyPolicy,
     HeuristicRunner,
+    Move,
     PolicyResult,
     RandomPolicy,
     SolverConfig,
@@ -137,6 +138,81 @@ def _print_moves(state: GameState) -> None:
     print(format_moves(moves))
 
 
+def _check_game_over(state: GameState) -> str:
+    """Check if the game is over and return status."""
+    won = state.is_won()
+    lost = state.is_lost()
+    
+    if won:
+        return "Game won! ✓"
+    elif lost:
+        return "Game lost! ✗"
+    else:
+        return "Game in progress."
+
+
+def _infer_foundation_move(state: GameState, notation: str) -> Optional[str]:
+    """
+    If notation is a move to bare "F" (e.g., "T0->F" or "W->F"), 
+    infer the correct foundation index based on the card being moved.
+    Returns the inferred notation or None if inference fails.
+    """
+    # Check if notation contains "->" or "→" and ends with just "F"
+    for arrow in ["->", "→"]:
+        if arrow not in notation:
+            continue
+        parts = notation.split(arrow)
+        if len(parts) != 2:
+            continue
+        source_str, target_str = parts
+        
+        # Extract any parenthetical card count from target
+        target_base = target_str.split("(")[0] if "(" in target_str else target_str
+        
+        if target_base != "F":
+            continue
+        
+        # Try to get the source card
+        if source_str == "W":
+            if not state.has_waste():
+                return None
+            card = state.waste_top()
+        elif source_str.startswith("T"):
+            try:
+                tableau_idx = int(source_str[1:])
+                face_up = state.tableau_face_up_count(tableau_idx)
+                if face_up == 0:
+                    return None
+                card = state.tableau_top(tableau_idx)
+            except (ValueError, IndexError):
+                return None
+        else:
+            return None
+        
+        # Infer foundation pile based on suit
+        suit_index = card.suit.value  # Suit is an enum, so value gives us 0-3
+        
+        # Reconstruct notation with inferred foundation
+        card_count_part = target_str[1:] if len(target_str) > 1 else ""
+        inferred_notation = f"{source_str}{arrow}F{suit_index}{card_count_part}"
+        return inferred_notation
+    
+    return None
+
+
+def _parse_move_notation(state: GameState, notation: str) -> Optional[Move]:
+    """
+    Parse move notation, with support for foundation inference.
+    Returns the parsed Move or None if parsing fails.
+    """
+    # Try to infer foundation moves first
+    inferred = _infer_foundation_move(state, notation)
+    if inferred:
+        notation = inferred
+    
+    return move_from_notation(notation)
+
+
 def _apply_choice(state: GameState, choice: str) -> GameState:
     choice = choice.strip()
     if not choice:
@@ -149,7 +225,7 @@ def _apply_choice(state: GameState, choice: str) -> GameState:
             raise ValueError(f"move number out of range: {choice}")
         return state.apply_move(legal[idx - 1])
 
-    move = move_from_notation(choice)
+    move = _parse_move_notation(state, choice)
     if move is None:
         raise ValueError(f"invalid move notation: {choice}")
     if not state.is_legal(move):
@@ -168,7 +244,7 @@ def _apply_choice_and_record(session: Session, choice: str) -> GameState:
         session.history.append(move.to_string())
         return session.state.apply_move(move)
 
-    move = move_from_notation(choice)
+    move = _parse_move_notation(session.state, choice)
     if move is None:
         raise ValueError(f"invalid move notation: {choice}")
     if not session.state.is_legal(move):
@@ -210,12 +286,14 @@ def interactive_loop(session: Session) -> None:
                 return
             if head in {"help", "h", "?"}:
                 print(
-                    "Commands: state, board, moves, history, move <n|notation>, auto greedy, auto random [seed], solve, reset [seed], quit"
+                    "Commands: state, board, moves, history, move <n|notation>, status, auto greedy, auto random [seed], solve, reset [seed], quit"
                 )
             elif head in {"state", "s"}:
                 print(_describe_state(session.state, session.use_color))
             elif head == "board":
                 print(_describe_board(session.state, session.use_color))
+            elif head in {"status", "gameover"}:
+                print(_check_game_over(session.state))
             elif head in {"moves", "m"}:
                 _print_moves(session.state)
             elif head in {"history", "hist"}:

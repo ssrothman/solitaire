@@ -101,7 +101,7 @@ std::vector<Card> make_progress_deck() {
 
 std::vector<Card> make_useful_stock_draw_deck() {
     std::vector<Card> deck = make_stock_cycle_no_op_deck();
-    const Card useful(Suit::Hearts, Rank::Two);
+    const Card useful(Suit::Hearts, Rank::Ace);
     const std::size_t useful_position = 49;
     const Card displaced = deck[useful_position];
 

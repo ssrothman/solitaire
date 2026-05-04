@@ -451,10 +451,17 @@ void GameState::_move_tableau_to_tableau(int src_pile, int tgt_pile,
     auto& src = _tableau_face_up[src_pile];
     auto& tgt = _tableau_face_up[tgt_pile];
 
-    // Move cards
+    // Move cards: collect the sequence from the source (top-first), then
+    // prepend them to the target from bottom-most moved card back to top-most
+    // so the original order is preserved on the destination pile.
+    std::vector<Card> seq;
+    seq.reserve(card_count);
     for (int i = 0; i < card_count; ++i) {
-        tgt.push_front(src.front());
+        seq.push_back(src.front());
         src.pop_front();
+    }
+    for (int i = static_cast<int>(seq.size()) - 1; i >= 0; --i) {
+        tgt.push_front(seq[static_cast<std::size_t>(i)]);
     }
 
     // Reveal if source is now empty
