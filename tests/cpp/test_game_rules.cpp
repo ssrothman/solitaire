@@ -1,8 +1,28 @@
 #include <catch2/catch_test_macros.hpp>
+
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "solitaire/game_state.h"
 #include "solitaire/shuffle.h"
 
 using namespace solitaire;
+
+namespace {
+
+std::vector<Card> make_ordered_deck() {
+    std::vector<Card> deck;
+    deck.reserve(DECK_SIZE);
+    for (int suit = 0; suit < NUM_SUITS; ++suit) {
+        for (int rank = 1; rank <= NUM_RANKS; ++rank) {
+            deck.emplace_back(static_cast<Suit>(suit), static_cast<Rank>(rank));
+        }
+    }
+    return deck;
+}
+
+}  // namespace
 
 TEST_CASE("Card creation and comparison") {
     Card c1(Suit::Hearts, Rank::Ace);
@@ -32,6 +52,38 @@ TEST_CASE("Stock draw") {
 
     int initial_stock = state.stock_size();
     REQUIRE(initial_stock > 0);
+}
+
+TEST_CASE("GameState string prints all four foundation piles") {
+    GameState state = GameState::from_deck(shuffle_deck(0), GameConfig());
+    const std::string text = state.to_string();
+
+    REQUIRE(text.find("Foundation: -- -- -- --") != std::string::npos);
+}
+
+TEST_CASE("Removing last face-up tableau card reveals hidden card") {
+    auto deck = make_ordered_deck();
+
+    // T1 layout after dealing: deck[1] is hidden, deck[2] is face-up.
+    std::swap(deck[2], deck[0]);   // put A♥ at deck[2] so it can move to foundation
+    std::swap(deck[1], deck[38]);  // put K♣ at deck[1] as the hidden card to reveal
+
+    GameState state = GameState::from_deck(deck, GameConfig());
+    REQUIRE(state.tableau_face_down_count(1) == 1);
+    REQUIRE(state.tableau_face_up_count(1) == 1);
+    REQUIRE(state.tableau_top(1) == Card(Suit::Hearts, Rank::Ace));
+
+    Move move(PileId(PileKind::Tableau, 1),
+              PileId(PileKind::Foundation, static_cast<int>(Suit::Hearts)),
+              MoveKind::TableauToFoundation,
+              1);
+    REQUIRE(state.is_legal(move));
+
+    GameState next = state.apply_move(move);
+    REQUIRE(next.foundation_top(static_cast<int>(Suit::Hearts)) == Card(Suit::Hearts, Rank::Ace));
+    REQUIRE(next.tableau_face_down_count(1) == 0);
+    REQUIRE(next.tableau_face_up_count(1) == 1);
+    REQUIRE(next.tableau_top(1) == Card(Suit::Clubs, Rank::King));
 }
 
 TEST_CASE("Move structural validation") {

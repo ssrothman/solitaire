@@ -19,6 +19,28 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build .
 ```
 
+### Build Options
+
+The top-level CMake project supports these options:
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `BUILD_TESTS` | `ON` | Build the C++ Catch2 test executables |
+| `BUILD_PYTHON` | `ON` | Build the pybind11 module and install the Python package files |
+
+Examples:
+
+```bash
+# Fast library-only build
+cmake .. -DBUILD_TESTS=OFF -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release
+
+# Build the library and C++ tests, but skip Python bindings
+cmake .. -DBUILD_TESTS=ON -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Debug
+
+# Build the Python module/package without the C++ test executables
+cmake .. -DBUILD_TESTS=OFF -DBUILD_PYTHON=ON -DCMAKE_BUILD_TYPE=Release
+```
+
 ### Run C++ Tests
 
 ```bash
@@ -31,6 +53,8 @@ ctest --verbose
 ```bash
 pip install -e .
 ```
+
+This uses scikit-build-core under the hood and respects the same CMake options defined in `pyproject.toml`.
 
 ## Quick Start
 

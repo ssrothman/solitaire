@@ -96,3 +96,31 @@ def test_cli_parser_defaults() -> None:
     assert args.seed == 0
     assert args.draw == 3
     assert args.no_recycle is False
+    assert args.no_color is False
+
+
+def test_ui_no_color_rendering_has_no_ansi_sequences() -> None:
+    state = solitaire.new_game(123)
+
+    state_text = cli._describe_state(state, use_color=False)
+    board_text = cli._describe_board(state, use_color=False)
+
+    assert "\033[" not in state_text
+    assert "\033[" not in board_text
+
+
+def test_ui_reverses_tableau_face_up_listing_order() -> None:
+    text = "\n".join(
+        [
+            "=== GameState ===",
+            "Tableau:",
+            "  T0: A♥ K♣ 10♦ [2 hidden]",
+            "  T1: 9♠ ",
+            "Foundation: -- -- -- -- ",
+        ]
+    )
+
+    rendered = cli._reverse_tableau_face_up_order(text)
+
+    assert "  T0: 10♦ K♣ A♥ [2 hidden]" in rendered
+    assert "  T1: 9♠ " in rendered

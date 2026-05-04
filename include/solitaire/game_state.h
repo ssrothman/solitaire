@@ -112,6 +112,7 @@ private:
 
     // Tableau: 7 piles, each with face-up cards (front) and face-down count
     std::array<std::deque<Card>, NUM_TABLEAU_PILES> _tableau_face_up;
+    std::array<std::deque<Card>, NUM_TABLEAU_PILES> _tableau_face_down_cards;
     std::array<int, NUM_TABLEAU_PILES> _tableau_face_down;
 
     // Foundation: 4 piles (one per suit), top card or empty

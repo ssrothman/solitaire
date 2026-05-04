@@ -10,7 +10,8 @@ namespace solitaire {
 // ============================================================================
 
 GameState::GameState() 
-        : _tableau_face_down{}, 
+        : _tableau_face_down_cards{},
+            _tableau_face_down{}, 
             _foundation{},
             _stock{}, 
             _waste{}, 
@@ -19,7 +20,8 @@ GameState::GameState()
             _stock_cycle_pos(0) {}
 
 GameState::GameState(const GameConfig& cfg) 
-        : _tableau_face_down{}, 
+        : _tableau_face_down_cards{},
+            _tableau_face_down{}, 
             _foundation{},
             _stock{}, 
             _waste{}, 
@@ -41,7 +43,7 @@ GameState GameState::from_deck(const std::vector<Card>& deck,
 // ============================================================================
 
 int GameState::tableau_face_down_count(int pile) const {
-    return _tableau_face_down[pile];
+    return static_cast<int>(_tableau_face_down_cards[pile].size());
 }
 
 Card GameState::tableau_top(int pile) const {
@@ -61,7 +63,7 @@ Card GameState::foundation_top(int suit_index) const {
 
 int GameState::foundation_size(int suit_index) const {
     Card top = _foundation[suit_index];
-    // Empty foundation has Ace; count is the rank of top card
+    // Empty foundation uses rank 0 (Card()) and counts as size 0.
     return static_cast<int>(top.rank());
 }
 
@@ -185,13 +187,16 @@ bool GameState::is_legal(const Move& move) const {
 bool GameState::can_move_to_foundation(const Card& card) const {
     int suit_idx = static_cast<int>(card.suit());
     Card top = _foundation[suit_idx];
+    const int top_rank = static_cast<int>(top.rank());
+    const int card_rank = static_cast<int>(card.rank());
 
-    if (card.rank() == Rank::Ace) {
-        return true;  // Aces always go to foundation (if empty)
+    if (top_rank == 0) {
+        // Empty foundation only accepts an Ace of matching suit.
+        return card_rank == static_cast<int>(Rank::Ace);
     }
 
     // Next rank must match and be one higher
-    if (static_cast<int>(top.rank()) + 1 == static_cast<int>(card.rank())) {
+    if (top_rank + 1 == card_rank) {
         return true;
     }
 
@@ -277,6 +282,9 @@ bool GameState::operator==(const GameState& other) const {
         if (_tableau_face_up[i] != other._tableau_face_up[i]) {
             return false;
         }
+        if (_tableau_face_down_cards[i] != other._tableau_face_down_cards[i]) {
+            return false;
+        }
         if (_tableau_face_down[i] != other._tableau_face_down[i]) {
             return false;
         }
@@ -309,6 +317,9 @@ bool GameState::same_position(const GameState& other) const {
     // Compare tableau
     for (int i = 0; i < NUM_TABLEAU_PILES; ++i) {
         if (_tableau_face_up[i] != other._tableau_face_up[i]) {
+            return false;
+        }
+        if (_tableau_face_down_cards[i] != other._tableau_face_down_cards[i]) {
             return false;
         }
         if (_tableau_face_down[i] != other._tableau_face_down[i]) {
@@ -348,6 +359,9 @@ std::size_t GameState::hash() const {
         for (const auto& card : _tableau_face_up[i]) {
             h ^= std::hash<Card>()(card) + 0x9e3779b9 + (h << 6) + (h >> 2);
         }
+        for (const auto& card : _tableau_face_down_cards[i]) {
+            h ^= std::hash<Card>()(card) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        }
         h ^= _tableau_face_down[i] + 0x9e3779b9 + (h << 6) + (h >> 2);
     }
 
@@ -379,14 +393,16 @@ std::string GameState::to_string() const {
         for (const auto& card : _tableau_face_up[i]) {
             ss << card.to_string() << " ";
         }
-        if (_tableau_face_down[i] > 0) {
-            ss << "[" << _tableau_face_down[i] << " hidden]";
+        if (!_tableau_face_down_cards[i].empty()) {
+            ss << "[" << _tableau_face_down_cards[i].size() << " hidden]";
         }
         ss << "\n";
     }
     ss << "Foundation: ";
     for (int i = 0; i < NUM_FOUNDATIONS; ++i) {
-        if (_foundation[i].rank() != Rank::Ace || i != 0) {
+        if (foundation_size(i) == 0) {
+            ss << "-- ";
+        } else {
             ss << _foundation[i].to_string() << " ";
         }
     }
@@ -412,6 +428,7 @@ void GameState::_deal_from_deck(const std::vector<Card>& deck) {
     // Deal tableau: 1, 2, 3, 4, 5, 6, 7 cards per pile
     for (int pile = 0; pile < NUM_TABLEAU_PILES; ++pile) {
         for (int i = 0; i < pile; ++i) {
+            _tableau_face_down_cards[pile].push_back(deck[card_idx]);
             _tableau_face_down[pile]++;
             card_idx++;
         }
@@ -426,11 +443,7 @@ void GameState::_deal_from_deck(const std::vector<Card>& deck) {
         _stock.push_back(deck[card_idx++]);
     }
 
-    // Initialize foundation as empty (Ace of each suit)
-    _foundation[0] = Card(Suit::Hearts, Rank::Ace);
-    _foundation[1] = Card(Suit::Diamonds, Rank::Ace);
-    _foundation[2] = Card(Suit::Clubs, Rank::Ace);
-    _foundation[3] = Card(Suit::Spades, Rank::Ace);
+    // Foundations remain empty (Card()) until an Ace is moved in.
 }
 
 void GameState::_move_tableau_to_tableau(int src_pile, int tgt_pile,
@@ -440,7 +453,7 @@ void GameState::_move_tableau_to_tableau(int src_pile, int tgt_pile,
 
     // Move cards
     for (int i = 0; i < card_count; ++i) {
-        tgt.push_front(src.front());
+        tgt.push_back(src.front());
         src.pop_front();
     }
 
@@ -521,10 +534,14 @@ void GameState::_recycle_stock() {
 }
 
 void GameState::_reveal_tableau_card(int pile) {
+    if (!_tableau_face_down_cards[pile].empty()) {
+        Card revealed = _tableau_face_down_cards[pile].back();
+        _tableau_face_down_cards[pile].pop_back();
+        _tableau_face_up[pile].push_front(revealed);
+    }
+
     if (_tableau_face_down[pile] > 0) {
         _tableau_face_down[pile]--;
-        // In a real implementation, we'd flip the actual card
-        // For now, just track the count
     }
 }
 
