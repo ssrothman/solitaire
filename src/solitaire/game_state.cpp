@@ -431,6 +431,37 @@ std::string GameState::to_string() const {
     return ss.str();
 }
 
+std::string GameState::board_fingerprint() const {
+    std::stringstream ss;
+    // Tableau: include face-up sequences and face-down counts
+    for (int i = 0; i < NUM_TABLEAU_PILES; ++i) {
+        ss << "T" << i << ":";
+        for (const auto& card : _tableau_face_up[i]) {
+            ss << card.to_string() << ",";
+        }
+        ss << "|" << _tableau_face_down_cards[i].size() << ";";
+    }
+
+    // Foundation
+    ss << "F:";
+    for (int i = 0; i < NUM_FOUNDATIONS; ++i) {
+        ss << _foundation[i].to_string() << ",";
+    }
+    ss << ";";
+
+    // Stock content (order matters) and waste content
+    ss << "S:";
+    for (const auto& card : _stock) {
+        ss << card.to_string() << ",";
+    }
+    ss << ";W:";
+    for (const auto& card : _waste) {
+        ss << card.to_string() << ",";
+    }
+
+    return ss.str();
+}
+
 // ============================================================================
 // Internal Helpers
 // ============================================================================

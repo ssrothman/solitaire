@@ -104,6 +104,13 @@ public:
     std::size_t hash() const;
 
     std::string to_string() const;
+    // A compact fingerprint of the board-only state used for visited-set
+    // comparisons. The fingerprint includes tableau, foundation, stock, and
+    // waste contents but intentionally excludes solver metadata such as
+    // `_turn_count` and `_stock_cycle_pos` so that positions differing only
+    // by those fields are considered equivalent for board-based equivalence.
+    // This function is stable and suitable for hashing and visited-set keys.
+    std::string board_fingerprint() const;
 
 private:
     // ========================================================================
