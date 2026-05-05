@@ -82,10 +82,12 @@ bool move_in_list(const solitaire::Move& move, const solitaire::MoveList& moves)
     return false;
 }
 
+using foundations_array_t = std::array<bool, solitaire::NUM_FOUNDATIONS>;
+
 // Forward declaration
 bool dfs_tableau_moves(
     const solitaire::GameState& current_state,
-    const std::array<bool, solitaire::NUM_FOUNDATIONS>& foundations_accessible,
+    const foundations_array_t& foundations_accessible,
     const bool empty_tableaus_productive,
     const int original_empty_tableaus,
     const solitaire::MoveList& accumulated_moves,
@@ -94,7 +96,7 @@ bool dfs_tableau_moves(
 
 // Check if current state has a new T-to-F move not in the original state
 bool has_new_ttf_move(const solitaire::MoveList& current_moves,
-                      const std::array<bool, solitaire::NUM_FOUNDATIONS>& foundations_accessible) {
+                      const foundations_array_t& foundations_accessible) {
         
     // Find all T-to-F moves in current state
     for (const auto& move : current_moves) {
@@ -123,7 +125,7 @@ bool has_new_empty_tableau_move(const solitaire::GameState& current_state,
 // accumulated_moves: All T-to-T moves seen from the start of the chain to this point
 //                    (we only explore moves not in this set, to avoid re-exploring)
 bool dfs_tableau_moves(const solitaire::GameState& current_state,
-                       const std::array<bool, solitaire::NUM_FOUNDATIONS>& foundations_accessible,
+                       const foundations_array_t& foundations_accessible,
                        const bool empty_tableaus_productive,
                        const int original_empty_tableaus,
                        const solitaire::MoveList& accumulated_moves,
@@ -192,7 +194,7 @@ bool is_tableau_to_tableau_no_op(const solitaire::GameState& state,
     // This allows us to ignore T-to-F moves 
     // that were already available in the DFS, 
     // even if the specific source tableau index changes due to T-to-T moves.
-    std::array<bool, solitaire::NUM_FOUNDATIONS> foundations_accessible;
+    foundations_array_t foundations_accessible;
     foundations_accessible.fill(false);
     for (const auto& m : original_moves) {
         if (m.kind == solitaire::MoveKind::TableauToFoundation) {
