@@ -36,7 +36,7 @@ solitaire::MoveList get_tableau_to_tableau_moves(const solitaire::GameState& sta
     for (const auto& move : legal_moves) {
         if (move.kind == solitaire::MoveKind::TableauToTableau) {
             // Only consider moves that don't expose face-down cards
-            if (move.card_count < state.tableau_face_up_count(move.source.index())) {
+            if (move.card_count < state.tableau_face_up_count(move.source.index()) || state.tableau_face_down_count(move.source.index()) == 0) {
                 ttt_moves.push_back(move);
             }
         }
@@ -200,7 +200,7 @@ bool is_non_stock_no_op(const solitaire::GameState& state, const solitaire::Move
     // Check if this move exposes a face-down card
     // This happens when card_count equals the number of face-up cards on the source
     // (moving all visible cards reveals the hidden cards beneath)
-    if (move.card_count == state.tableau_face_up_count(move.source.index())) {
+    if (move.card_count == state.tableau_face_up_count(move.source.index()) && state.tableau_face_down_count(move.source.index()) > 0) {
         return false;  // Exposes face-down cards, not a no-op
     }
     
