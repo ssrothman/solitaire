@@ -267,8 +267,22 @@ def _parse_move_notation(state: GameState, notation: str) -> Optional[Move]:
     inferred = _infer_foundation_move(state, notation)
     if inferred:
         notation = inferred
-    
-    return move_from_notation(notation)
+    # Use the library parser, then adjust stock/recycle counts to match the
+    # current game configuration (since notation prints "Draw"/"Recycle"
+    # without counts).
+    move = move_from_notation(notation)
+    if move is None:
+        return None
+
+    # Normalize Draw without explicit count to use the game's draw size
+    if notation.startswith("Draw") and "(" not in notation:
+        move.card_count = state.config.cards_per_draw
+
+    # Normalize Recycle (plain word) to carry the current waste size
+    if notation.strip().lower() == "recycle":
+        move.card_count = state.waste_size()
+
+    return move
 
 
 def _apply_choice(state: GameState, choice: str) -> GameState:
@@ -360,6 +374,33 @@ def interactive_loop(session: Session) -> None:
                 _print_cheat_moves(session.state)
             elif head in {"history", "hist"}:
                 print("\n".join(_history_lines(session)))
+            elif head in {"load", "replay"}:
+                # Load moves from a file and apply them sequentially to the current state.
+                if not tail:
+                    raise ValueError("usage: load <path-to-move-list>")
+                path = tail
+                try:
+                    with open(path, "r", encoding="utf-8") as fh:
+                        lines = fh.readlines()
+                except OSError as exc:
+                    raise ValueError(f"failed to open file: {exc}")
+
+                # Each line may be like " 1. T0->F0" as printed by history
+                move_re = re.compile(r"^\s*\d+\.\s*(.+)$")
+                applied = 0
+                for lineno, rawline in enumerate(lines, start=1):
+                    line = rawline.strip()
+                    if not line:
+                        continue
+                    m = move_re.match(line)
+                    move_text = m.group(1) if m else line
+                    try:
+                        session.state = _apply_choice_and_record(session, move_text)
+                        applied += 1
+                    except Exception as exc:
+                        raise ValueError(f"failed applying move on line {lineno}: {line} -> {exc}")
+
+                print(f"Applied {applied} moves from {path}.")
             elif head == "move":
                 session.state = _apply_choice_and_record(session, tail)
                 print(_render_state_text(session.state, session.use_color))

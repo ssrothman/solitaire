@@ -1,8 +1,13 @@
 #include "solitaire/util/move_analysis.h"
+#include "solitaire/game_state.h"
+#include "solitaire/types.h"
+#include "solitaire/constants.h"
+#include "solitaire/util/move_notation.h"
 
 #include <algorithm>
 #include <optional>
 #include <unordered_set>
+#include <cassert>
 
 namespace {
 
@@ -26,22 +31,43 @@ bool are_moves_equal(const solitaire::Move& a, const solitaire::Move& b) {
            && a.card_count == b.card_count;
 }
 
+// Helper: check if a move is "obviously productive"
+// This short circuits the DFS for simple cases
+// where a T-to-T move clearly exposes a face-down card, which is always productive.
+bool obviously_productive_TtoT_move(const solitaire::Move& move, const solitaire::GameState& state) {
+    if (move.card_count == state.tableau_face_up_count(move.source.index()) 
+       && (state.tableau_face_down_count(move.source.index()) > 0)) {
+            return true; 
+    } 
+
+    return false;
+}
+
+bool empty_tableau_to_empty_tableau(const solitaire::GameState& state, const solitaire::Move& move) {
+    return state.tableau_face_up_count(move.source.index()) == 0 &&
+           state.tableau_face_up_count(move.target.index()) == 0;
+}
+
 // ============================================================================
 
-// Helper: Extract all T-to-T moves from a state, excluding those that expose face-down cards
-// (moves that expose face-down are already handled as early returns in is_non_stock_no_op)
-solitaire::MoveList get_tableau_to_tableau_moves(const solitaire::GameState& state) {
-    auto legal_moves = state.legal_moves();
+// Helper: Filter all T-to-T moves that need DFS analysis
+// This excludes moves that obviously expose face-down cards, which are always productive and don't need DFS analysis.
+// This also excludes moves that are empty tableau to empty tableau, which are always not productive and don't need DFS analysis.
+
+solitaire::MoveList filter_tableau_to_tableau_moves_for_DFS(const solitaire::MoveList& moves, const solitaire::GameState& state) {
     solitaire::MoveList ttt_moves;
-    for (const auto& move : legal_moves) {
-        if (move.kind == solitaire::MoveKind::TableauToTableau) {
-            // Only consider moves that don't expose face-down cards
-            if (move.card_count < state.tableau_face_up_count(move.source.index()) || state.tableau_face_down_count(move.source.index()) == 0) {
-                ttt_moves.push_back(move);
-            }
+    for (const auto& move : moves) {
+        if (move.kind == solitaire::MoveKind::TableauToTableau && !obviously_productive_TtoT_move(move, state) && !empty_tableau_to_empty_tableau(state, move)) {
+            ttt_moves.push_back(move);
         }
     }
     return ttt_moves;
+}
+
+// Helper: Extract all T-to-T moves that need DFS analysis
+solitaire::MoveList get_tableau_to_tableau_moves_for_DFS(const solitaire::GameState& state) {
+    auto legal_moves = state.legal_moves();
+    return filter_tableau_to_tableau_moves_for_DFS(legal_moves, state);
 }
 
 // Helper: Check if a move is in a move list
@@ -57,43 +83,38 @@ bool move_in_list(const solitaire::Move& move, const solitaire::MoveList& moves)
 }
 
 // Forward declaration
-bool dfs_tableau_moves(const solitaire::GameState& original_state,
-                       const solitaire::GameState& current_state,
-                       const solitaire::MoveList& original_ttf_moves,
-                       const solitaire::MoveList& accumulated_moves,
-                       std::unordered_set<std::size_t>& visited);
+bool dfs_tableau_moves(
+    const solitaire::GameState& current_state,
+    const std::array<bool, solitaire::NUM_FOUNDATIONS>& foundations_accessible,
+    const bool empty_tableaus_productive,
+    const int original_empty_tableaus,
+    const solitaire::MoveList& accumulated_moves,
+    std::unordered_set<std::size_t>& visited
+);
 
 // Check if current state has a new T-to-F move not in the original state
-bool has_new_ttf_move(const solitaire::GameState& current_state,
-                      const solitaire::MoveList& original_ttf_moves) {
-    auto current_moves = current_state.legal_moves();
-    
+bool has_new_ttf_move(const solitaire::MoveList& current_moves,
+                      const std::array<bool, solitaire::NUM_FOUNDATIONS>& foundations_accessible) {
+        
     // Find all T-to-F moves in current state
     for (const auto& move : current_moves) {
-        if (move.kind != solitaire::MoveKind::TableauToFoundation) {
-            continue;
-        }
-        
-        // Check if this T-to-F was NOT in the original state
-        // Only the foundation destination matters for "newness" — ignore
-        // the source tableau index to avoid false positives when moving
-        // stacks that contain a card movable to the foundation.
-        bool found_in_original = false;
-        for (const auto& orig : original_ttf_moves) {
-            if (orig.target.kind() == solitaire::PileKind::Foundation &&
-                move.target.kind() == solitaire::PileKind::Foundation &&
-                orig.target.index() == move.target.index()) {
-                found_in_original = true;
-                break;
-            }
-        }
-        
-        if (!found_in_original) {
-            return true;  // Found a new T-to-F move
-        }
+        if (move.kind == solitaire::MoveKind::TableauToFoundation && !foundations_accessible[move.target.index()]) {
+            return true;
+        }        
     }
     
     return false;
+}
+
+bool has_new_empty_tableau_move(const solitaire::GameState& current_state,
+                              const int original_empty_tableaus) {
+    int current_empty_tableaus = 0;
+    for (int i = 0; i < solitaire::NUM_TABLEAU_PILES; ++i) {
+        if (current_state.tableau_face_up_count(i) == 0) {
+            current_empty_tableaus++;
+        }
+    }
+    return (current_empty_tableaus > original_empty_tableaus);
 }
 
 // DFS helper: explore only newly-exposed T-to-T moves from current state
@@ -101,9 +122,10 @@ bool has_new_ttf_move(const solitaire::GameState& current_state,
 // 
 // accumulated_moves: All T-to-T moves seen from the start of the chain to this point
 //                    (we only explore moves not in this set, to avoid re-exploring)
-bool dfs_tableau_moves(const solitaire::GameState& original_state,
-                       const solitaire::GameState& current_state,
-                       const solitaire::MoveList& original_ttf_moves,
+bool dfs_tableau_moves(const solitaire::GameState& current_state,
+                       const std::array<bool, solitaire::NUM_FOUNDATIONS>& foundations_accessible,
+                       const bool empty_tableaus_productive,
+                       const int original_empty_tableaus,
                        const solitaire::MoveList& accumulated_moves,
                        std::unordered_set<std::size_t>& visited) {
     std::size_t current_hash = compute_board_hash(current_state);
@@ -114,13 +136,18 @@ bool dfs_tableau_moves(const solitaire::GameState& original_state,
     }
     visited.insert(current_hash);
     
+    auto current_moves = current_state.legal_moves();
+
     // Check if current state has a new T-to-F move
-    if (has_new_ttf_move(current_state, original_ttf_moves)) {
+    if (has_new_ttf_move(current_moves, foundations_accessible)) {
+        return true;
+    }
+    if (empty_tableaus_productive && has_new_empty_tableau_move(current_state, original_empty_tableaus)) {
         return true;
     }
     
     // Get all legal T-to-T moves from current state
-    auto current_ttt_moves = get_tableau_to_tableau_moves(current_state);
+    auto current_ttt_moves = filter_tableau_to_tableau_moves_for_DFS(current_moves, current_state);
     
     // Explore only moves not in the accumulated set
     // (moves that haven't been seen anywhere in the chain so far)
@@ -141,7 +168,9 @@ bool dfs_tableau_moves(const solitaire::GameState& original_state,
             }
         }
         
-        if (dfs_tableau_moves(original_state, next, original_ttf_moves, 
+        if (dfs_tableau_moves(next, foundations_accessible,
+                              empty_tableaus_productive,
+                              original_empty_tableaus, 
                               new_accumulated, visited)) {
             return true;
         }
@@ -152,25 +181,70 @@ bool dfs_tableau_moves(const solitaire::GameState& original_state,
 }
 
 // Check if a T-to-T move is a no-op by DFS analysis
-// Note: Early returns for progress/face-down exposure are handled in is_non_stock_no_op()
 bool is_tableau_to_tableau_no_op(const solitaire::GameState& state,
                                  const solitaire::GameState& after) {
+
     // Get the original T-to-F moves available
     auto original_moves = state.legal_moves();
-    solitaire::MoveList original_ttf_moves;
+
+    // We need to track which foundation piles are accessible 
+    // from the tableau in the initial state.
+    // This allows us to ignore T-to-F moves 
+    // that were already available in the DFS, 
+    // even if the specific source tableau index changes due to T-to-T moves.
+    std::array<bool, solitaire::NUM_FOUNDATIONS> foundations_accessible;
+    foundations_accessible.fill(false);
     for (const auto& m : original_moves) {
         if (m.kind == solitaire::MoveKind::TableauToFoundation) {
-            original_ttf_moves.push_back(m);
+            foundations_accessible[m.target.index()] = true;
         }
     }
+
+    // The other kind of productive move that can be revealed by T-to-T moves
+    // is a new king-to-empty-tableau move.
+    // We track this by:
+    // 1) counting the available kings in the original state (including tableau and waste)
+    // 2) counting the empty tableaus in the original state
+    // If there are more available kings than empty tableaus, 
+    // then any newly exposed empty tableaus are automatically productive
+    // we will check for this in the DFS
+    int available_kings = 0;
+    int empty_tableaus = 0;
+    if (state.has_waste() && state.waste_top().rank() == solitaire::Rank::King) {
+        available_kings++;
+    }
+    for (int i = 0; i < solitaire::NUM_TABLEAU_PILES; ++i) {
+        if (state.tableau_face_up_count(i) == 0) {
+            empty_tableaus++;
+        }
+        if (state.tableau_face_up_count(i) > 0 && state.tableau_top(i).rank() == solitaire::Rank::King) {
+            available_kings++;
+        }
+    }
+    bool empty_tableaus_productive = (available_kings > empty_tableaus);
     
-    // Get the T-to-T moves from the original state (starting accumulated set)
-    auto original_ttt_moves = get_tableau_to_tableau_moves(state);
+    // Get the T-to-T moves from the original state
+    // This will be both the list of moves to run DFS exploration on,
+    auto original_ttt_moves = get_tableau_to_tableau_moves_for_DFS(state);
     
     // DFS from the after state to find new T-to-F moves
     // Only explore T-to-T moves not in original_ttt_moves (cumulative across chain)
     std::unordered_set<std::size_t> visited;
-    return !dfs_tableau_moves(state, after, original_ttf_moves, original_ttt_moves, visited);
+    // TODO: This will be the piece that I rework by hand
+    // I need to plumb through empty_tableaus_productive()
+    // And to make sure the treatment of which moves to ignore is correct
+    // I think I'll replace this direct call with an explicit outer loop
+    // It would be nice to have some notion of the fewest steps to arrive at a productive
+    // move, so that we can reject moves which are not along the shortest path to a productive move, 
+    // Well see if I feel like that's worth iT
+    return !dfs_tableau_moves(
+        after, 
+        foundations_accessible, 
+        empty_tableaus_productive,
+        empty_tableaus,
+        original_ttt_moves, 
+        visited
+    );
 }
 
 bool is_waste_origin_move(const solitaire::Move& move) {
@@ -193,15 +267,17 @@ bool is_non_stock_no_op(const solitaire::GameState& state, const solitaire::Move
     }
 
     // Only Tableau-to-Tableau moves reach here
-    if (move.kind != solitaire::MoveKind::TableauToTableau) {
-        return false;  // Shouldn't reach here, but be safe
-    }
+    // Check with an assertion
+    assert(move.kind == solitaire::MoveKind::TableauToTableau);
 
     // Check if this move exposes a face-down card
     // This happens when card_count equals the number of face-up cards on the source
     // (moving all visible cards reveals the hidden cards beneath)
-    if (move.card_count == state.tableau_face_up_count(move.source.index()) && state.tableau_face_down_count(move.source.index()) > 0) {
+    if (obviously_productive_TtoT_move(move, state)) {
         return false;  // Exposes face-down cards, not a no-op
+    }
+    if (empty_tableau_to_empty_tableau(state, move)) {
+        return true;  // Empty tableau to empty tableau, always a no-op
     }
     
     // Apply the move for DFS analysis

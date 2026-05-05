@@ -177,9 +177,7 @@ bool GameState::is_legal(const Move& move) const {
         case MoveKind::StockRecycle:
             return _stock.empty() &&
                    !_waste.empty() &&
-                   _config.unlimited_recycle &&
-                   move.card_count == static_cast<int>(_waste.size()) &&
-                   move.card_count > 0;
+                   _config.unlimited_recycle;
     }
 
     return false;

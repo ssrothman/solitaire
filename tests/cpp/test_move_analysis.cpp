@@ -504,3 +504,141 @@ TEST_CASE("Move analysis: user-provided tricky sequence (seed 10)", "[move_analy
 
     REQUIRE(tested); // ensure we actually tested at least one tableau move
 }
+
+TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T2->T6)", "[move_analysis][dfs-edge]") {
+    GameState state = GameState::from_deck(shuffle_deck(1658024654), GameConfig(3, true));
+
+    auto apply = [&](const Move& m) {
+        REQUIRE(state.is_legal(m));
+        state = state.apply_move(m);
+    };
+
+    // Helper lambdas to build moves
+    auto TtoF = [&](int src, int fidx) {
+        Move m;
+        m.source = PileId(PileKind::Tableau, src);
+        m.target = PileId(PileKind::Foundation, fidx);
+        m.kind = MoveKind::TableauToFoundation;
+        m.card_count = 1;
+        return m;
+    };
+    auto TtoT = [&](int src, int tgt, int cnt=1) {
+        Move m;
+        m.source = PileId(PileKind::Tableau, src);
+        m.target = PileId(PileKind::Tableau, tgt);
+        m.kind = MoveKind::TableauToTableau;
+        m.card_count = cnt;
+        return m;
+    };
+    auto WtoT = [&](int tgt) {
+        Move m;
+        m.source = PileId(PileKind::Waste, 0);
+        m.target = PileId(PileKind::Tableau, tgt);
+        m.kind = MoveKind::WasteToTableau;
+        m.card_count = 1;
+        return m;
+    };
+    auto WtoF = [&](int f) {
+        Move m;
+        m.source = PileId(PileKind::Waste, 0);
+        m.target = PileId(PileKind::Foundation, f);
+        m.kind = MoveKind::WasteToFoundation;
+        m.card_count = 1;
+        return m;
+    };
+    auto Draw = [&]() {
+        Move m;
+        m.source = PileId(PileKind::Stock, 0);
+        m.target = PileId(PileKind::Waste, 0);
+        m.kind = MoveKind::StockDraw;
+        m.card_count = state.config().cards_per_draw;
+        return m;
+    };
+    auto Recycle = [&]() {
+        Move m;
+        m.source = PileId(PileKind::Waste, 0);
+        m.target = PileId(PileKind::Stock, 0);
+        m.kind = MoveKind::StockRecycle;
+        m.card_count = state.waste_size();
+        return m;
+    };
+
+    // Apply the provided sequence of 60 moves
+    apply(TtoT(2, 1));              // 1
+    apply(TtoT(2, 1));              // 2
+    apply(TtoT(3, 4));              // 3
+    apply(TtoT(4, 2, 2));           // 4
+    apply(TtoT(6, 4));              // 5
+    apply(TtoT(3, 6));              // 6
+    apply(Draw());                  // 7
+    apply(Draw());                  // 8
+    apply(WtoT(2));                 // 9
+    apply(Draw());                  // 10
+    apply(WtoF(1));                 // 11
+    apply(Draw());                  // 12
+    apply(WtoF(3));                 // 13
+    apply(WtoT(5));                 // 14
+    apply(Draw());                  // 15
+    apply(WtoT(2));                 // 16
+    apply(Draw());                  // 17
+    apply(Draw());                  // 18
+    apply(Draw());                  // 19
+    apply(Recycle());               // 20
+    apply(Draw());                  // 21
+    apply(WtoF(1));                 // 22
+    apply(Draw());                  // 23
+    apply(WtoF(3));                 // 24
+    apply(TtoF(0, 3));              // 25
+    apply(TtoF(2, 3));              // 26
+    apply(WtoT(5));                 // 27
+    apply(WtoF(2));                 // 28
+    apply(Draw());                  // 29
+    apply(Draw());                  // 30
+    apply(WtoT(0));                 // 31
+    apply(TtoT(4, 0, 2));           // 32
+    apply(TtoT(5, 4, 3));           // 33
+    apply(Draw());                  // 34
+    apply(Draw());                  // 35
+    apply(WtoT(4));                 // 36
+    apply(TtoT(6, 4, 2));           // 37
+    apply(TtoT(2, 6, 4));           // 38
+    apply(TtoT(4, 2, 7));           // 39
+    apply(WtoF(0));                 // 40
+    apply(WtoF(2));                 // 41
+    apply(WtoT(4));                 // 42
+    apply(TtoF(5, 2));              // 43
+    apply(TtoT(4, 2, 2));           // 44
+    apply(TtoT(5, 3));              // 45
+    apply(TtoT(1, 3, 3));           // 46
+    apply(TtoF(1, 1));              // 47
+    apply(TtoF(4, 1));              // 48
+    apply(TtoF(6, 1));              // 49
+    apply(Draw());                  // 50
+    apply(Recycle());               // 51
+    apply(Draw());                  // 52
+    apply(Draw());                  // 53
+    apply(Draw());                  // 54
+    apply(Draw());                  // 55
+    apply(Recycle());               // 56
+    apply(Draw());                  // 57
+    apply(Draw());                  // 58
+    apply(WtoF(3));                 // 59
+    apply(TtoT(0, 1, 3));           // 60
+
+    // Verify that there is exactly one non-no-op T-to-T move: T2->T6
+    MoveList moves = state.legal_moves();
+    
+    std::vector<Move> non_noop_ttt;
+    for (const auto& m : moves) {
+        if (m.kind == MoveKind::TableauToTableau) {
+            if (!is_no_op_move(state, m)) {
+                non_noop_ttt.push_back(m);
+            }
+        }
+    }
+
+    REQUIRE(non_noop_ttt.size() == 1);
+    REQUIRE(non_noop_ttt.front().source == PileId(PileKind::Tableau, 2));
+    REQUIRE(non_noop_ttt.front().target == PileId(PileKind::Tableau, 6));
+    REQUIRE(non_noop_ttt.front().card_count == 1);
+}
