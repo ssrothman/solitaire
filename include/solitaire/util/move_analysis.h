@@ -164,19 +164,28 @@ namespace solitaire::util {
 //
 // ============================================================================
 
-// Return true if applying move leaves the game state unchanged in a way that
-// prevents progress. This is used in solver pruning to skip redundant moves.
+// Return a list of all NON-no-op moves (moves that have potential consequences).
+// This is used in solver pruning to identify moves worth exploring.
+//
+// A move is a "no-op" if applying it leaves the game state in a way that prevents
+// progress (doesn't enable new foundation moves or useful empty tableaus). This function
+// returns all moves that are NOT no-ops, using:
+//
+// - Early returns for obviously productive moves (face-down exposure, waste→*, T→F, etc.)
+// - Stock cycle analysis for draw/recycle moves
+// - Global DFS with parent-child tracking for T-to-T moves, reusing work across moves
 //
 // Args:
 //   state: Current game state
-//   move:  Move to evaluate
 //
 // Returns:
-//   true  - Move is a no-op (doesn't enable progress)
-//   false - Move has potential consequences (not a no-op)
+//   MoveList - All legal moves that are NOT no-ops (have productive consequences)
 //
-// Note: Illegal moves return false (not no-ops, they're simply invalid).
-bool is_no_op_move(const GameState& state, const Move& move);
+// Note: Moves explicitly filtered out include:
+// - All no-op stock draws/recycles
+// - Empty T-to-T moves that don't lead to productivity
+// - All other moves identified as non-productive by static analysis
+MoveList all_non_no_op_moves(const GameState& state);
 
 }  // namespace solitaire::util
 
