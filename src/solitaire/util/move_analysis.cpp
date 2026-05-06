@@ -140,7 +140,6 @@ void DFS_worker(const solitaire::GameState& current_state,
             propagate_shorter_path(*cache[next_repr], depth + 1, initial_move);
         }
     }
-
 }            
 
 // ============================================================================
@@ -250,8 +249,7 @@ MoveList all_non_no_op_moves(const GameState& state) {
         
         // Stock Draw/Recycle: check for cycles
         if (move.kind == MoveKind::StockDraw || move.kind == MoveKind::StockRecycle) {
-            GameState next = state.apply_move(move);
-            if (!is_stock_cycle_no_op(state, next)) {
+            if (!is_stock_cycle_no_op(state)) {
                 non_no_ops.push_back(move);
             }
             continue;
@@ -328,7 +326,7 @@ MoveList all_non_no_op_moves(const GameState& state) {
                 &move,
                 cache,
                 productive_states
-            )
+            );
         }
 
         // Collect all moves that lead to productive states
