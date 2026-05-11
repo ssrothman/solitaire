@@ -15,12 +15,20 @@ MoveList EquivalencePruningStrategy::filter(const GameState& state,
 
 MoveList NoOpPruningStrategy::filter(const GameState& state,
                                        const MoveList& moves) const {
+    const MoveList productive_moves = util::all_non_no_op_moves(state);
+
     MoveList filtered;
     filtered.reserve(moves.size());
 
     for (const auto& move : moves) {
-        if (!util::is_no_op_move(state, move)) {
-            filtered.push_back(move);
+        for (const auto& productive_move : productive_moves) {
+            if (move.kind == productive_move.kind &&
+                move.source == productive_move.source &&
+                move.target == productive_move.target &&
+                move.card_count == productive_move.card_count) {
+                filtered.push_back(move);
+                break;
+            }
         }
     }
 

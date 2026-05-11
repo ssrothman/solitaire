@@ -273,14 +273,9 @@ bool GameState::is_lost() const {
     }
 
     // Check if all remaining moves are no-ops (no progress possible)
-    for (const auto& move : moves) {
-        if (!util::is_no_op_move(*this, move)) {
-            return false;  // Found a move that makes progress
-        }
-    }
-
-    // All moves are no-ops = lost
-    return true;
+    // all_no_op_moves() returns NON-no-ops, so if empty, all moves are no-ops
+    MoveList productive_moves = util::all_non_no_op_moves(*this);
+    return productive_moves.empty();
 }
 
 // ============================================================================

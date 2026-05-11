@@ -161,6 +161,14 @@ struct Move {
 
     // Notation is generated on-demand via util::move_to_notation()
     std::string to_string() const;  // Implemented in util/move_notation.cpp
+
+    // Equality operators for testing and hashing
+    bool operator==(const Move& other) const {
+        return source == other.source &&
+               target == other.target &&
+               kind == other.kind &&
+               card_count == other.card_count;
+    }
 };
 
 using MoveList = std::vector<Move>;

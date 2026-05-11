@@ -5,8 +5,13 @@
 #include "solitaire/util/move_notation.h"
 
 #include <algorithm>
+#include <memory>
+#include <optional>
+#include <unordered_map>
 #include <unordered_set>
 #include <cassert>
+
+#define DEBUG_MOVE_ANALYSIS 1
 
 namespace {
 
@@ -38,53 +43,111 @@ bool empty_tableau_to_empty_tableau(const solitaire::GameState& state, const sol
 //
 // Returns true if DFS discovers new T-to-F or productive empty tableau.
 
-struct BoardStateInfo {
-    int min_depth;
-    solitaire::Move* initial_move;
-    std::unordered_map<std::string, BoardStateInfo*> children;
+// If reason code < 0, it's productive due to new empty tableau
+//     With value = (index of new empty tableau) - 1
+// If the reason code > 0, it's productive due to access to a new foundation
+//     With value = index of the newly accessible foundation + 1
+// If the reason code = 0, thats a default value somehow passing through due to a bug
+using ReasonCode = int8_t;
 
-    BoardStateInfo(int depth, const solitaire::Move* move) :
-        min_depth(depth), initial_move(move), children() {}
+struct BoardStateInfo {
+    std::string myhash;
+
+    uint8_t min_depth;
+    solitaire::Move initial_move;
+    bool productive;
+    ReasonCode productive_reason;
+    std::unordered_set<std::string> children;
+
+    BoardStateInfo(uint8_t depth, const solitaire::Move& move)
+        : min_depth(depth), initial_move(move), 
+        productive(false), productive_reason(0),
+        children() {}
 };
-using BoardStateCache = std::unordered_map<std::string, BoardStateInfo>;
-using BoardStateSet = std::unordered_set<BoardStateInfo*>;
+
+using BoardStateCache = std::unordered_map<std::string, std::shared_ptr<BoardStateInfo>>;
+using ProductiveStateSet = std::unordered_map<ReasonCode, std::string>; 
 
 using FoundationsArray = std::array<bool, solitaire::NUM_FOUNDATIONS>;
 
-void propagate_shorter_path(BoardStateInfo* current_info, int new_depth, const solitaire::Move* initial_move) {
-    if (current_info->min_depth > new_depth) {
+void propagate_shorter_path(const std::shared_ptr<BoardStateInfo>& current_info,
+                            uint8_t new_depth,
+                            BoardStateCache& cache,
+                            ProductiveStateSet& productive_states,
+                            const solitaire::Move& initial_move) {
 
-        current_info->min_depth = new_depth;
-        current_info->initial_move = initial_move;
+    if (new_depth >= current_info->min_depth) {
+        return;
+    }
 
-        for (auto& child_pair : current_info->children) {
-            propagate_shorter_path(child_pair.second, new_depth + 1, initial_move);
+    current_info->min_depth = new_depth;
+    current_info->initial_move = initial_move;
+
+    if (current_info->productive){
+        assert(current_info->productive_reason != 0);
+        assert(productive_states.count(current_info->productive_reason) > 0);
+        if (cache[productive_states[current_info->productive_reason]]->min_depth > new_depth) {
+            productive_states[current_info->productive_reason] = current_info->myhash;
         }
+    }
+
+    for (auto& child_fingerprint : current_info->children) {
+        propagate_shorter_path(
+            cache[child_fingerprint], 
+            new_depth + 1, 
+            cache, 
+            productive_states, 
+            initial_move
+        );
     }
 }
 
+std::pair<std::shared_ptr<BoardStateInfo>, bool> get_or_create_node(
+    BoardStateCache& cache,
+    ProductiveStateSet& productive_states,
+    const std::string& fingerprint,
+    uint8_t depth,
+    const solitaire::Move& initial_move) {
+
+    auto it = cache.find(fingerprint);
+    if (it == cache.end()) {
+        auto node = std::make_shared<BoardStateInfo>(depth, initial_move);
+        cache.emplace(fingerprint, node);
+        cache[fingerprint]->myhash = fingerprint;
+        return {node, true};
+    }
+
+    auto& node = it->second;
+    if (depth < node->min_depth) {
+        propagate_shorter_path(
+            node, 
+            depth, 
+            cache, 
+            productive_states, 
+            initial_move
+        );
+    }
+    return {node, false};
+}
+
 void DFS_worker(const solitaire::GameState& current_state,
+                const solitaire::Move& causing_move,
                 const FoundationsArray& foundations_accessible,
                 const bool empty_tableaus_productive,
-                const int original_empty_tableaus,
-                const int depth,
-                const solitaire::Move* initial_move,
+                const uint8_t original_empty_tableaus,
+                const uint8_t depth,
+                const solitaire::Move& initial_move,
+                const std::shared_ptr<BoardStateInfo>& current_node,
                 BoardStateCache& cache,
-                BoardStateSet& productive_states){
+                ProductiveStateSet& productive_states) {
 
-    // Precondition: current_state has not already been visited (not in cache)
+    const solitaire::MoveList avail_moves = current_state.legal_moves();
 
-    std::string board_repr = current_state.board_fingerprint();
-
-    const MoveList avail_moves = current_state.legal_moves();
-
-    // First check if this state is productive
-    // Because if it is we are already done, and don't need to explore further
-    
     bool productive = false;
+    ReasonCode productive_reason = 0; // Default to invalid reason code
 
     if (empty_tableaus_productive) {
-        int current_empty = 0;
+        int8_t current_empty = 0;
         for (int i = 0; i < solitaire::NUM_TABLEAU_PILES; ++i) {
             if (current_state.tableau_face_up_count(i) == 0) {
                 current_empty++;
@@ -92,55 +155,72 @@ void DFS_worker(const solitaire::GameState& current_state,
         }
         if (current_empty > original_empty_tableaus) {
             productive = true;
+            // Use negative reason codes for new empty tableau, 
+            // with value = -(index of new empty tableau + 1) 
+            productive_reason = -(causing_move.source.index() + 1); 
         }
     }
 
     if (!productive) {
-        for (const auto& move : avail_moves){
-            if (move.kind == solitaire::MoveKind::TableauToFoundation 
-                && !foundations_accessible[move.target.index()]) {
-                // Found a new T-to-F move, so this state is productive
-                // We can stop exploring further from this state
+        for (const auto& move : avail_moves) {
+            if (move.kind == solitaire::MoveKind::TableauToFoundation &&
+                !foundations_accessible[move.target.index()]) {
                 productive = true;
+                // Use positive reason codes for new foundation access, 
+                // with value = (index of newly accessible foundation + 1)
+                productive_reason = move.target.index() + 1; 
                 break;
             }
         }
     }
 
     if (productive) {
-        cache[board_repr] = BoardStateInfo(depth, initial_move);
-        productive_states.insert(cache[board_repr]);
+        cache[current_state.board_fingerprint()]->productive = true;
+        cache[current_state.board_fingerprint()]->productive_reason = productive_reason;
+
+        if (productive_states.count(productive_reason) == 0 || depth < cache[productive_states[productive_reason]]->min_depth) {
+            productive_states[productive_reason] = current_state.board_fingerprint();
+        } 
         return;
     }
 
-    // If not productive, explore further
-    for (const auto& move : avail_moves){
-        // skip non-T-to-T moves (productivity already obvious)
-        if (move.kind != solitaire::MoveKind::TableauToTableau) continue;
-        // skip obviously productive moves (already counted as productive, no need to explore)
-        if (obviously_productive_TtoT_move(move, current_state)) continue;
-        // skip empty tableau to empty tableau moves (never productive, would bloat runtime)
-        if (empty_tableau_to_empty_tableau(current_state, move)) continue;
+    for (const auto& move : avail_moves) {
+        if (move.kind != solitaire::MoveKind::TableauToTableau) {
+            continue;
+        }
+        if (obviously_productive_TtoT_move(move, current_state)) {
+            continue;
+        }
+        if (empty_tableau_to_empty_tableau(current_state, move)) {
+            continue;
+        }
 
         solitaire::GameState next = current_state.apply_move(move);
-        std::string next_repr = next.board_fingerprint();
+        const std::string next_fingerprint = next.board_fingerprint();
+        const auto [child_node, created] = get_or_create_node(
+            cache, productive_states,
+             next_fingerprint, 
+             depth + 1, 
+             initial_move
+        );
+        current_node->children.insert(next_fingerprint);
 
-        if (cache.count(next_repr) == 0) {
-            // If we've never seen this state before, explore further with DFS
+        if (created) {
             DFS_worker(
-                next, 
-                foundations_accessible, empty_tableaus_productive,
-                original_empty_tableaus, depth + 1, 
-                initial_move, 
-                cache, productive_states
+                next,
+                move,
+                foundations_accessible,
+                empty_tableaus_productive,
+                original_empty_tableaus,
+                depth + 1,
+                initial_move,
+                child_node,
+                cache,
+                productive_states
             );
-        } else {
-            // If we have seen this state before, propagate shorter path if aplicable
-            // (the relevant check happens inside the propagate_shorter_path function)
-            propagate_shorter_path(*cache[next_repr], depth + 1, initial_move);
         }
     }
-}            
+}
 
 // ============================================================================
 // Stock cycle detection
@@ -158,7 +238,7 @@ bool is_stock_cycle_no_op(const solitaire::GameState& original_state) {
     
     // Loop until we return to the original position (cycle detected) 
     // Or we discover a waste-origin move (proving it's not a no-op)
-    GameState current = original_state;
+    solitaire::GameState current = original_state;
     while (!once_through || current.waste_size() < initial_position) {
         if (current.stock_size() > 0) {
             solitaire::Move draw(
@@ -187,10 +267,8 @@ bool is_stock_cycle_no_op(const solitaire::GameState& original_state) {
         }
 
 
-        auto legal = current.legal_moves();
-        
-        // Check for waste-origin moves (would enable progress)
-        bool has_waste_moves = false;
+        const auto legal = current.legal_moves();
+
         for (const auto& m : legal) {
             if (m.kind == solitaire::MoveKind::WasteToTableau ||
                 m.kind == solitaire::MoveKind::WasteToFoundation) {
@@ -307,47 +385,43 @@ MoveList all_non_no_op_moves(const GameState& state) {
         
         // Run DFS for each nontrivial T-to-T move
         BoardStateCache cache;
-        BoardStateSet productive_states;
+        ProductiveStateSet productive_states;
 
         for (const auto& move : nontrivial_ttt) {
             GameState next = state.apply_move(move);
 
             std::string next_repr = next.board_fingerprint();
-            if (cache.count(next_repr) != 0) {
+            const auto [root_node, created] = get_or_create_node(
+                cache, productive_states, 
+                next_repr, 1, 
+                move
+            );
+            if (!created) {
                 continue;
             }
 
             DFS_worker(
                 next,
+                move,
                 foundations_accessible,
                 empty_tableaus_productive,
                 current_empty,
                 1,
-                &move,
+                move,
+                root_node,
                 cache,
                 productive_states
             );
         }
 
         // Collect all moves that lead to productive states
-        for (BoardStateInfo* info : productive_states) {
-            assert(info->initial_move != nullptr);
+        std::unordered_set<std::string> emitted_moves;
+        for (const auto& productive : productive_states) {
+            const auto& initial_move = cache[productive.second]->initial_move;
 
-            // Need to check if the initial move is already in non_no_ops
-            // (One move could lead to multiple productive states??)
-            bool already_in_non_no_ops = false;
-            for (const auto& m : non_no_ops) {
-                if (m == *info->initial_move) {
-                    already_in_non_no_ops = true;
-                    break;
-                }
-            }
-
-            if (already_in_non_no_ops) {
-                printf("DEBUG: Move %s can result in multiple productive board states. I wasn't sure this was possible\n", util::move_to_notation(*info->initial_move).c_str());
-                continue;
-            } else {
-                non_no_ops.push_back(*info->initial_move);
+            const std::string move_key = util::move_to_notation(initial_move);
+            if (emitted_moves.insert(move_key).second) {
+                non_no_ops.push_back(initial_move);
             }
         }
     }

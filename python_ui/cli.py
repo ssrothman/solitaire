@@ -17,7 +17,7 @@ from solitaire import (
     RandomPolicy,
     SolverConfig,
     format_moves,
-    is_no_op_move,
+    all_non_no_op_moves,
     move_from_notation,
     new_game,
 )
@@ -28,6 +28,19 @@ ANSI_BLUE = "\033[34m"
 ANSI_RESET = "\033[0m"
 CARD_TOKEN_RE = re.compile(r"(10|[2-9AJQK])([♥♦♣♠])")
 TABLEAU_LINE_RE = re.compile(r"^(\s*T\d+:\s*)(.*?)(\s*\[\d+ hidden\])?$")
+
+
+# Helper: check if a move is a no-op using the new API
+# all_non_no_op_moves() returns NON-no-ops, so a move is a no-op if it's NOT in the list
+def _is_no_op_move(state: GameState, move: Move) -> bool:
+    non_no_ops = all_non_no_op_moves(state)
+    for m in non_no_ops:
+        if (m.source == move.source and
+            m.target == move.target and
+            m.card_count == move.card_count and
+            m.kind == move.kind):
+            return False  # Found in non-no-ops list, so NOT a no-op
+    return True  # Not in non-no-ops list, so IS a no-op
 
 
 def _colorize_cards_in_text(text: str) -> str:
@@ -147,10 +160,11 @@ def _print_cheat_moves(state: GameState) -> None:
         print("No legal moves.")
         return
     
+    non_no_ops = all_non_no_op_moves(state)
     progress_moves = [
         (index, move)
         for index, move in enumerate(moves, start=1)
-        if not is_no_op_move(state, move)
+        if move in non_no_ops
     ]
     
     if not progress_moves:

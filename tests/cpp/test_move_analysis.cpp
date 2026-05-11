@@ -11,6 +11,21 @@ using namespace solitaire::util;
 
 namespace {
 
+// Helper: check if a move is a no-op using the new API
+// all_non_no_op_moves() returns NON-no-ops, so a move is a no-op if it's NOT in the list
+bool is_no_op_move(const GameState& state, const Move& move) {
+    MoveList non_no_ops = all_non_no_op_moves(state);
+    for (const auto& m : non_no_ops) {
+        if (m.source == move.source &&
+            m.target == move.target &&
+            m.card_count == move.card_count &&
+            m.kind == move.kind) {
+            return false;  // Found in non-no-ops list, so NOT a no-op
+        }
+    }
+    return true;  // Not in non-no-ops list, so IS a no-op
+}
+
 std::vector<Card> make_stock_cycle_no_op_deck() {
     std::array<Card, 7> tableau_tops = {
         Card(Suit::Hearts, Rank::Ten),
@@ -185,7 +200,7 @@ TEST_CASE("Move analysis: stock cycle recurrence is treated as no-op", "[move_an
     REQUIRE(recycled != start);
 }
 
-TEST_CASE("Move analysis: illegal moves are not treated as no-ops", "[move_analysis]") {
+TEST_CASE("Move analysis: illegal moves are treated as no-ops", "[move_analysis]") {
     GameState state = GameState::from_deck(shuffle_deck(42), GameConfig(3, true));
 
     Move illegal;
@@ -194,7 +209,7 @@ TEST_CASE("Move analysis: illegal moves are not treated as no-ops", "[move_analy
     illegal.kind = MoveKind::TableauToTableau;
     illegal.card_count = 1;
 
-    REQUIRE_FALSE(is_no_op_move(state, illegal));
+    REQUIRE(is_no_op_move(state, illegal));
 }
 
 TEST_CASE("Move analysis: helper is deterministic on repeated calls", "[move_analysis]") {
@@ -633,7 +648,16 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T2->T6)", "[move_
         if (m.kind == MoveKind::TableauToTableau) {
             if (!is_no_op_move(state, m)) {
                 non_noop_ttt.push_back(m);
+                // DEBUG: Show which T-to-T moves are being flagged
+                // std::cerr << "T" << m.source.index() << "->T" << m.target.index() << " count=" << m.card_count << " is_non_noop\n";
             }
+        }
+    }
+
+    // If we have more than 1, show them all for debugging
+    if (non_noop_ttt.size() != 1) {
+        for (const auto& m : non_noop_ttt) {
+            // std::cerr << "  Non-no-op: T" << m.source.index() << "->T" << m.target.index() << " count=" << m.card_count << "\n";
         }
     }
 
@@ -641,4 +665,168 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T2->T6)", "[move_
     REQUIRE(non_noop_ttt.front().source == PileId(PileKind::Tableau, 2));
     REQUIRE(non_noop_ttt.front().target == PileId(PileKind::Tableau, 6));
     REQUIRE(non_noop_ttt.front().card_count == 1);
+}
+
+TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T4->T1(4))", "[move_analysis][dfs-edge]") {
+    GameState state = GameState::from_deck(shuffle_deck(1658024654), GameConfig(3, true));
+
+    auto apply = [&](const Move& m) {
+        REQUIRE(state.is_legal(m));
+        state = state.apply_move(m);
+    };
+
+    auto TtoF = [&](int src, int fidx) {
+        Move m;
+        m.source = PileId(PileKind::Tableau, src);
+        m.target = PileId(PileKind::Foundation, fidx);
+        m.kind = MoveKind::TableauToFoundation;
+        m.card_count = 1;
+        return m;
+    };
+    auto TtoT = [&](int src, int tgt, int cnt = 1) {
+        Move m;
+        m.source = PileId(PileKind::Tableau, src);
+        m.target = PileId(PileKind::Tableau, tgt);
+        m.kind = MoveKind::TableauToTableau;
+        m.card_count = cnt;
+        return m;
+    };
+    auto WtoT = [&](int tgt) {
+        Move m;
+        m.source = PileId(PileKind::Waste, 0);
+        m.target = PileId(PileKind::Tableau, tgt);
+        m.kind = MoveKind::WasteToTableau;
+        m.card_count = 1;
+        return m;
+    };
+    auto WtoF = [&](int f) {
+        Move m;
+        m.source = PileId(PileKind::Waste, 0);
+        m.target = PileId(PileKind::Foundation, f);
+        m.kind = MoveKind::WasteToFoundation;
+        m.card_count = 1;
+        return m;
+    };
+    auto Draw = [&]() {
+        Move m;
+        m.source = PileId(PileKind::Stock, 0);
+        m.target = PileId(PileKind::Waste, 0);
+        m.kind = MoveKind::StockDraw;
+        m.card_count = state.config().cards_per_draw;
+        return m;
+    };
+    auto Recycle = [&]() {
+        Move m;
+        m.source = PileId(PileKind::Waste, 0);
+        m.target = PileId(PileKind::Stock, 0);
+        m.kind = MoveKind::StockRecycle;
+        m.card_count = state.waste_size();
+        return m;
+    };
+
+    apply(TtoT(2, 1));              // 1
+    apply(TtoT(2, 1));              // 2
+    apply(TtoT(3, 4));              // 3
+    apply(TtoT(4, 2, 2));           // 4
+    apply(TtoT(6, 4));              // 5
+    apply(TtoT(3, 6));              // 6
+    apply(Draw());                  // 7
+    apply(Draw());                  // 8
+    apply(WtoT(2));                 // 9
+    apply(Draw());                  // 10
+    apply(WtoF(1));                 // 11
+    apply(Draw());                  // 12
+    apply(WtoF(3));                 // 13
+    apply(WtoT(5));                 // 14
+    apply(Draw());                  // 15
+    apply(WtoT(2));                 // 16
+    apply(Draw());                  // 17
+    apply(Draw());                  // 18
+    apply(Draw());                  // 19
+    apply(Recycle());               // 20
+    apply(Draw());                  // 21
+    apply(WtoF(1));                 // 22
+    apply(Draw());                  // 23
+    apply(WtoF(3));                 // 24
+    apply(TtoF(0, 3));              // 25
+    apply(TtoF(2, 3));              // 26
+    apply(WtoT(5));                 // 27
+    apply(WtoF(2));                 // 28
+    apply(Draw());                  // 29
+    apply(Draw());                  // 30
+    apply(WtoT(0));                 // 31
+    apply(TtoT(4, 0, 2));           // 32
+    apply(TtoT(5, 4, 3));           // 33
+    apply(Draw());                  // 34
+    apply(Draw());                  // 35
+    apply(WtoT(4));                 // 36
+    apply(TtoT(6, 4, 2));           // 37
+    apply(TtoT(2, 6, 4));           // 38
+    apply(TtoT(4, 2, 7));           // 39
+    apply(WtoF(0));                 // 40
+    apply(WtoF(2));                 // 41
+    apply(WtoT(4));                 // 42
+    apply(TtoF(5, 2));              // 43
+    apply(TtoT(4, 2, 2));           // 44
+    apply(TtoT(5, 3));              // 45
+    apply(TtoT(1, 3, 3));           // 46
+    apply(TtoF(1, 1));              // 47
+    apply(TtoF(4, 1));              // 48
+    apply(TtoF(6, 1));              // 49
+    apply(Draw());                  // 50
+    apply(Recycle());               // 51
+    apply(Draw());                  // 52
+    apply(Draw());                  // 53
+    apply(Draw());                  // 54
+    apply(Draw());                  // 55
+    apply(Recycle());               // 56
+    apply(Draw());                  // 57
+    apply(Draw());                  // 58
+    apply(WtoF(3));                 // 59
+    apply(TtoT(0, 1, 3));           // 60
+    apply(TtoT(2, 6));              // 61
+    apply(TtoF(2, 3));              // 62
+    apply(Draw());                  // 63
+    apply(Draw());                  // 64
+    apply(Recycle());               // 65
+    apply(Draw());                  // 66
+    apply(Draw());                  // 67
+    apply(WtoF(0));                 // 68
+    apply(TtoF(5, 0));              // 69
+    apply(WtoF(0));                 // 70
+    apply(WtoF(3));                 // 71
+    apply(TtoT(5, 1));              // 72
+    apply(TtoF(5, 1));              // 73
+    apply(TtoF(6, 0));              // 74
+    apply(TtoF(2, 1));              // 75
+    apply(WtoF(1));                 // 76
+    apply(TtoF(2, 3));              // 77
+    apply(TtoT(6, 2, 3));           // 78
+    apply(TtoF(6, 1));              // 79
+    apply(WtoT(6));                 // 80
+    apply(TtoF(1, 1));              // 81
+    apply(WtoF(3));                 // 82
+    apply(TtoT(3, 6, 5));           // 83
+    apply(TtoF(3, 3));              // 84
+    apply(TtoT(6, 0, 7));           // 85
+    apply(TtoF(6, 0));              // 86
+    apply(TtoT(6, 3));              // 87
+    apply(TtoF(6, 1));              // 88
+    apply(TtoT(0, 4, 7));           // 89
+    apply(TtoT(1, 0, 3));           // 90
+    apply(TtoT(0, 1, 3));           // 91
+
+    MoveList moves = state.legal_moves();
+
+    std::vector<Move> non_noop_ttt;
+    for (const auto& m : moves) {
+        if (m.kind == MoveKind::TableauToTableau && !is_no_op_move(state, m)) {
+            non_noop_ttt.push_back(m);
+        }
+    }
+
+    REQUIRE(non_noop_ttt.size() == 1);
+    REQUIRE(non_noop_ttt.front().source == PileId(PileKind::Tableau, 4));
+    REQUIRE(non_noop_ttt.front().target == PileId(PileKind::Tableau, 1));
+    REQUIRE(non_noop_ttt.front().card_count == 4);
 }
