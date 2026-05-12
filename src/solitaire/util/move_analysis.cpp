@@ -11,7 +11,7 @@
 #include <unordered_set>
 #include <cassert>
 
-#define DEBUG_MOVE_ANALYSIS 1
+// #define DEBUG_MOVE_ANALYSIS 1
 
 namespace {
 
@@ -29,8 +29,46 @@ bool obviously_productive_TtoT_move(const solitaire::Move& move, const solitaire
 // ============================================================================
 
 bool empty_tableau_to_empty_tableau(const solitaire::GameState& state, const solitaire::Move& move) {
-    return state.tableau_face_up_count(move.source.index()) == 0 &&
+    // we don't need to check if we are moving the entire stack
+    // because this will only have been a valid move if the target has zero face up cards
+    return state.tableau_face_down_count(move.source.index()) == 0 &&
            state.tableau_face_up_count(move.target.index()) == 0;
+}
+
+// ============================================================================
+// Helper: Check if move is from an empty tableau to non-empty tableau
+// ============================================================================
+
+bool empty_tableau_to_nonempty_tableau(const solitaire::GameState& state, const solitaire::Move& move) {
+    // here we DO need to check if we are moving the entire stack
+    return state.tableau_face_down_count(move.source.index()) == 0 &&
+           state.tableau_face_up_count(move.target.index()) != 0 &&
+           state.tableau_face_up_count(move.source.index()) == move.card_count;
+}
+
+bool check_empty_tableaus_productive(const solitaire::GameState& state){
+    int current_empty = 0;
+    for (int i = 0; i < solitaire::NUM_TABLEAU_PILES; ++i) {
+        if (state.tableau_face_up_count(i) == 0) {
+            ++current_empty;
+        }
+    }
+    if (current_empty > 0){
+        return false;
+    } else {
+        // have a king on the waste we can move down?
+        if (state.has_waste() && state.waste_top().rank() == solitaire::Rank::King) { 
+            return true;
+        }
+
+        for (int i = 0; i < solitaire::NUM_TABLEAU_PILES; ++i) {
+            // have a king on top of any face down cards on the tableau?
+            if (state.tableau_face_up_count(i) > 0 && state.tableau_bottom(i).rank() == solitaire::Rank::King) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 // ============================================================================
@@ -131,10 +169,7 @@ std::pair<std::shared_ptr<BoardStateInfo>, bool> get_or_create_node(
 }
 
 void DFS_worker(const solitaire::GameState& current_state,
-                const solitaire::Move& causing_move,
                 const FoundationsArray& foundations_accessible,
-                const bool empty_tableaus_productive,
-                const uint8_t original_empty_tableaus,
                 const uint8_t depth,
                 const solitaire::Move& initial_move,
                 const std::shared_ptr<BoardStateInfo>& current_node,
@@ -145,21 +180,6 @@ void DFS_worker(const solitaire::GameState& current_state,
 
     bool productive = false;
     ReasonCode productive_reason = 0; // Default to invalid reason code
-
-    if (empty_tableaus_productive) {
-        int8_t current_empty = 0;
-        for (int i = 0; i < solitaire::NUM_TABLEAU_PILES; ++i) {
-            if (current_state.tableau_face_up_count(i) == 0) {
-                current_empty++;
-            }
-        }
-        if (current_empty > original_empty_tableaus) {
-            productive = true;
-            // Use negative reason codes for new empty tableau, 
-            // with value = -(index of new empty tableau + 1) 
-            productive_reason = -(causing_move.source.index() + 1); 
-        }
-    }
 
     if (!productive) {
         for (const auto& move : avail_moves) {
@@ -208,10 +228,7 @@ void DFS_worker(const solitaire::GameState& current_state,
         if (created) {
             DFS_worker(
                 next,
-                move,
                 foundations_accessible,
-                empty_tableaus_productive,
-                original_empty_tableaus,
                 depth + 1,
                 initial_move,
                 child_node,
@@ -301,9 +318,13 @@ namespace solitaire::util {
 
 MoveList all_non_no_op_moves(const GameState& state) {
     MoveList non_no_ops;
+    
+    // Precompute if revealing a new empty tableau will be productive
+    bool empty_tableaus_productive = check_empty_tableaus_productive(state);
+
 
     MoveList moves = state.legal_moves();
-    
+
     // ========================================================================
     // Phase 1: Early returns for obviously productive moves
     // ========================================================================
@@ -321,6 +342,9 @@ MoveList all_non_no_op_moves(const GameState& state) {
             move.kind == MoveKind::TableauToFoundation) {
 
             non_no_ops.push_back(move);
+#ifdef DEBUG_MOVE_ANALYSIS
+            printf("Obviously productive waste-to* or *-to-foundation move: %s\n", move_to_notation(move).c_str());
+#endif
             continue;
         }
         
@@ -328,6 +352,9 @@ MoveList all_non_no_op_moves(const GameState& state) {
         // Stock Draw/Recycle: check for cycles
         if (move.kind == MoveKind::StockDraw || move.kind == MoveKind::StockRecycle) {
             if (!is_stock_cycle_no_op(state)) {
+#ifdef DEBUG_MOVE_ANALYSIS
+                printf("Productive stock cycle: %s\n", move_to_notation(move).c_str());
+#endif
                 non_no_ops.push_back(move);
             }
             continue;
@@ -337,16 +364,33 @@ MoveList all_non_no_op_moves(const GameState& state) {
         if (move.kind == MoveKind::TableauToTableau) {
             // Exposes face-down: always progress
             if (obviously_productive_TtoT_move(move, state)) {
+#ifdef DEBUG_MOVE_ANALYSIS
+                printf("Obviously productive TtoT move: %s\n", move_to_notation(move).c_str());
+#endif
                 non_no_ops.push_back(move);
                 continue;
             }
             
             // Empty to empty: never progress (skip)
             if (empty_tableau_to_empty_tableau(state, move)) {
+#ifdef DEBUG_MOVE_ANALYSIS
+                printf("Obviously non-productive empty tableau to empty tableau move: %s\n", move_to_notation(move).c_str());
+#endif
+                continue;
+            }
+
+            if (empty_tableaus_productive && empty_tableau_to_nonempty_tableau(state, move)) {
+#ifdef DEBUG_MOVE_ANALYSIS
+                printf("Productive reveal of empty tableau: %s\n", move_to_notation(move).c_str());
+#endif
+                non_no_ops.push_back(move);
                 continue;
             }
             
             // Nontrivial: requires DFS analysis
+#ifdef DEBUG_MOVE_ANALYSIS
+            printf("Needs DFS: %s\n", move_to_notation(move).c_str());
+#endif
             nontrivial_ttt.push_back(move);
             continue;
         }
@@ -365,24 +409,7 @@ MoveList all_non_no_op_moves(const GameState& state) {
                 foundations_accessible[move.target.index()] = true;
             }
         }
-        
-        // Pre-compute: are new empty tableaus useful?
-        // (Yes if there are more available Kings than current empty tableaus)
-        int available_kings = 0;
-        int current_empty = 0;
-        if (state.has_waste() && state.waste_top().rank() == Rank::King) {
-            available_kings++;
-        }
-        for (int i = 0; i < NUM_TABLEAU_PILES; ++i) {
-            if (state.tableau_face_up_count(i) == 0) {
-                current_empty++;
-            }
-            if (state.tableau_face_up_count(i) > 0 && state.tableau_top(i).rank() == Rank::King) {
-                available_kings++;
-            }
-        }
-        bool empty_tableaus_productive = (available_kings > current_empty);
-        
+                
         // Run DFS for each nontrivial T-to-T move
         BoardStateCache cache;
         ProductiveStateSet productive_states;
@@ -402,10 +429,7 @@ MoveList all_non_no_op_moves(const GameState& state) {
 
             DFS_worker(
                 next,
-                move,
                 foundations_accessible,
-                empty_tableaus_productive,
-                current_empty,
                 1,
                 move,
                 root_node,
@@ -420,6 +444,14 @@ MoveList all_non_no_op_moves(const GameState& state) {
             const auto& initial_move = cache[productive.second]->initial_move;
 
             const std::string move_key = util::move_to_notation(initial_move);
+
+#ifdef DEBUG_MOVE_ANALYSIS
+            printf("No-op move %s for reason code %d\n",
+                move_key.c_str(),
+                productive.first
+            );
+#endif
+
             if (emitted_moves.insert(move_key).second) {
                 non_no_ops.push_back(initial_move);
             }

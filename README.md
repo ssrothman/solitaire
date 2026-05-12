@@ -56,6 +56,11 @@ pip install -e .
 
 This uses scikit-build-core under the hood and respects the same CMake options defined in `pyproject.toml`.
 
+To build without an internet connection, make sure all the dependencies are installed, and run
+```bash
+pip install . --no-build-isolation --verbose
+```
+
 ## Quick Start
 
 ### C++ Usage

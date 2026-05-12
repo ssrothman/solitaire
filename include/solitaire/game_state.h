@@ -41,6 +41,7 @@ public:
     // Tableau queries  
     int tableau_face_down_count(int pile) const;
     Card tableau_top(int pile) const;  // Get top face-up card, or empty Card if none
+    Card tableau_bottom(int pile) const;
     int tableau_face_up_count(int pile) const;  // How many face-up cards in pile
 
     // Foundation queries

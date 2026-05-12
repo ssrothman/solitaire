@@ -54,6 +54,14 @@ Card GameState::tableau_top(int pile) const {
     return _tableau_face_up[pile].front();
 }
 
+Card GameState::tableau_bottom(int pile) const {
+    if (_tableau_face_up[pile].empty()) {
+        return Card();  // Empty card
+    }
+    return _tableau_face_up[pile].back();
+}
+
+
 int GameState::tableau_face_up_count(int pile) const {
     return _tableau_face_up[pile].size();
 }
