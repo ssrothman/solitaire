@@ -832,5 +832,158 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T4->T1(4))", "[mo
 }
 
 
-// TODO: ADD A TEST CASE WITH SEED 89565164
-// AND HISTORY FROM the file history3
+TEST_CASE("Move analysis: edge case seed 89565164 (non-no-op T3->T2(6))", "[move_analysis][dfs-edge]") {
+    GameState state = GameState::from_deck(shuffle_deck(89565164), GameConfig(3, true));
+
+    auto apply = [&](const Move& m) {
+        REQUIRE(state.is_legal(m));
+        state = state.apply_move(m);
+    };
+
+    auto TtoF = [&](int src, int fidx) {
+        Move m;
+        m.source = PileId(PileKind::Tableau, src);
+        m.target = PileId(PileKind::Foundation, fidx);
+        m.kind = MoveKind::TableauToFoundation;
+        m.card_count = 1;
+        return m;
+    };
+    auto TtoT = [&](int src, int tgt, int cnt = 1) {
+        Move m;
+        m.source = PileId(PileKind::Tableau, src);
+        m.target = PileId(PileKind::Tableau, tgt);
+        m.kind = MoveKind::TableauToTableau;
+        m.card_count = cnt;
+        return m;
+    };
+    auto WtoT = [&](int tgt) {
+        Move m;
+        m.source = PileId(PileKind::Waste, 0);
+        m.target = PileId(PileKind::Tableau, tgt);
+        m.kind = MoveKind::WasteToTableau;
+        m.card_count = 1;
+        return m;
+    };
+    auto WtoF = [&](int f) {
+        Move m;
+        m.source = PileId(PileKind::Waste, 0);
+        m.target = PileId(PileKind::Foundation, f);
+        m.kind = MoveKind::WasteToFoundation;
+        m.card_count = 1;
+        return m;
+    };
+    auto Draw = [&]() {
+        Move m;
+        m.source = PileId(PileKind::Stock, 0);
+        m.target = PileId(PileKind::Waste, 0);
+        m.kind = MoveKind::StockDraw;
+        m.card_count = state.config().cards_per_draw;
+        return m;
+    };
+    auto Recycle = [&]() {
+        Move m;
+        m.source = PileId(PileKind::Waste, 0);
+        m.target = PileId(PileKind::Stock, 0);
+        m.kind = MoveKind::StockRecycle;
+        m.card_count = state.waste_size();
+        return m;
+    };
+
+    // Apply the provided sequence of 80 moves
+    apply(TtoT(6,5));              // 1 T6→T5
+    apply(Draw());                 // 2
+    apply(Draw());                 // 3
+    apply(Draw());                 // 4
+    apply(Draw());                 // 5
+    apply(Draw());                 // 6
+    apply(Draw());                 // 7
+    apply(Draw());                 // 8
+    apply(Draw());                 // 9
+    apply(WtoF(0));                // 10 W→F0
+    apply(Recycle());              // 11
+    apply(Draw());                 // 12
+    apply(Draw());                 // 13
+    apply(Draw());                 // 14
+    apply(Draw());                 // 15
+    apply(Draw());                 // 16
+    apply(Draw());                 // 17
+    apply(Draw());                 // 18
+    apply(Draw());                 // 19
+    apply(Recycle());              // 20
+    apply(Draw());                 // 21
+    apply(Draw());                 // 22
+    apply(WtoT(6));                // 23 W→T6
+    apply(Draw());                 // 24
+    apply(Draw());                 // 25
+    apply(Draw());                 // 26
+    apply(Draw());                 // 27
+    apply(Draw());                 // 28
+    apply(Draw());                 // 29
+    apply(Recycle());              // 30
+    apply(Draw());                 // 31
+    apply(Draw());                 // 32
+    apply(WtoF(1));                // 33 W→F1
+    apply(TtoF(6,1));              // 34 T6→F1
+    apply(Draw());                 // 35
+    apply(Draw());                 // 36
+    apply(Draw());                 // 37
+    apply(WtoF(2));                // 38 W→F2
+    apply(Draw());                 // 39
+    apply(WtoT(5));                // 40 W→T5
+    apply(WtoT(5));                // 41 W→T5
+    apply(Draw());                 // 42
+    apply(Draw());                 // 43
+    apply(WtoT(5));                // 44 W→T5
+    apply(TtoT(1,5));              // 45 T1→T5
+    apply(TtoT(6,1));              // 46 T6→T1
+    apply(Recycle());              // 47
+    apply(Draw());                 // 48
+    apply(Draw());                 // 49
+    apply(Draw());                 // 50
+    apply(WtoT(0));                // 51 W→T0
+    apply(Draw());                 // 52
+    apply(Draw());                 // 53
+    apply(WtoT(3));                // 54 W→T3
+    apply(TtoT(4,3));              // 55 T4→T3
+    apply(TtoT(1,4,2));            // 56 T1→T4(2)
+    apply(TtoT(2,1));              // 57 T2→T1
+    apply(TtoT(3,2,3));            // 58 T3→T2(3)
+    apply(TtoF(3,3));              // 59 T3→F3
+    apply(Draw());                 // 60
+    apply(Recycle());              // 61
+    apply(Draw());                 // 62
+    apply(Draw());                 // 63
+    apply(WtoF(3));                // 64 W→F3
+    apply(TtoF(5,3));              // 65 T5→F3
+    apply(Draw());                 // 66
+    apply(Draw());                 // 67
+    apply(Draw());                 // 68
+    apply(Recycle());              // 69
+    apply(Draw());                 // 70
+    apply(Draw());                 // 71
+    apply(WtoT(0));                // 72 W→T0
+    apply(TtoT(6,0));              // 73 T6→T0
+    apply(Draw());                 // 74
+    apply(Draw());                 // 75
+    apply(WtoT(6));                // 76 W→T6
+    apply(WtoT(3));                // 77 W→T3
+    apply(WtoT(1));                // 78 W→T1
+    apply(TtoT(3,6,2));            // 79 T3→T6(2)
+    apply(TtoT(5,3,5));            // 80 T5→T3(5)
+
+    MoveList moves = state.legal_moves();
+
+    // Collect non-no-op tableau moves
+    std::vector<Move> non_noop_ttt;
+    for (const auto& m : moves) {
+        if (m.kind == MoveKind::TableauToTableau && !is_no_op_move(state, m)) {
+            non_noop_ttt.push_back(m);
+        }
+    }
+
+    // There should be exactly one non-no-op tableau move: T3->T2 with 6 cards
+    REQUIRE(non_noop_ttt.size() == 1);
+    REQUIRE(non_noop_ttt.front().source == PileId(PileKind::Tableau, 3));
+    REQUIRE(non_noop_ttt.front().target == PileId(PileKind::Tableau, 2));
+    REQUIRE(non_noop_ttt.front().card_count == 6);
+}
