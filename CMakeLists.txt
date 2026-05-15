@@ -15,6 +15,7 @@ endif()
 # Build options
 option(BUILD_TESTS "Build C++ unit tests" ON)
 option(BUILD_PYTHON "Build Python bindings" ON)
+option(BUILD_BENCHMARKS "Build C++ performance benchmarks" OFF)
 
 # Include CMake utilities
 include(GNUInstallDirs)
@@ -93,7 +94,7 @@ if(BUILD_PYTHON)
     pybind11_add_module(_solitaire_binding bindings/module.cpp)
     target_link_libraries(_solitaire_binding PRIVATE solitaire_core)
     
-    # Install to python/solitaire/
+    # Install the Python package layout into the wheel/site-packages tree.
     set_target_properties(_solitaire_binding PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/python/solitaire"
     )
@@ -103,16 +104,26 @@ if(BUILD_PYTHON)
     )
 
     install(FILES
-        solitaire/__init__.py
+        python/solitaire/__init__.py
         DESTINATION solitaire
     )
 
     install(FILES
-        python_ui/__init__.py
-        python_ui/cli.py
-        python_ui/__main__.py
-        DESTINATION python_ui
+        python/solitaire/ui/__init__.py
+        python/solitaire/ui/cli.py
+        python/solitaire/ui/main.py
+        python/solitaire/ui/__main__.py
+        DESTINATION solitaire/ui
     )
+endif()
+
+# Benchmarks
+if(BUILD_BENCHMARKS)
+    add_executable(benchmark_pruning benchmarks/cpp/benchmark_pruning.cpp)
+    target_link_libraries(benchmark_pruning PRIVATE solitaire_core)
+
+    add_executable(benchmark_move_generation benchmarks/cpp/benchmark_move_generation.cpp)
+    target_link_libraries(benchmark_move_generation PRIVATE solitaire_core)
 endif()
 
 # Install headers

@@ -6,7 +6,6 @@ from typing import Iterable, Optional
 
 from ._solitaire_binding import *  # noqa: F401,F403
 
-
 def new_game(seed: int = 0, cfg: Optional[GameConfig] = None) -> GameState:
     """Create a new shuffled game state."""
     return deal_game(seed, cfg or GameConfig())

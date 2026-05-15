@@ -12,7 +12,7 @@ requires-python = ">=3.9"
 dependencies = []
 
 [project.scripts]
-solitaire-ui = "python_ui.cli:main"
+solitaire = "solitaire.ui.main:main"
 
 [project.optional-dependencies]
 dev = ["pytest", "black", "flake8", "mypy"]

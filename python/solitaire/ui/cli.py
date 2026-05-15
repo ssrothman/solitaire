@@ -16,7 +16,6 @@ from solitaire import (
     PolicyResult,
     RandomPolicy,
     SolverConfig,
-    format_moves,
     all_non_no_op_moves,
     move_from_notation,
     new_game,

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 import solitaire
-from python_ui import cli
+from solitaire.ui import cli
 
 
 def test_package_helpers_round_trip_move_notation() -> None:
