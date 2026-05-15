@@ -34,7 +34,7 @@ public:
                              const MoveList& legal_moves) = 0;
 
     // Optional: evaluate the consequence of a move (for advanced policies)
-    virtual double evaluate_move(const GameState& state, const Move& move) {
+    virtual double evaluate_move([[maybe_unused]] const GameState& state, [[maybe_unused]] const Move& move) {
         return 0.0;  // Default: no evaluation
     }
 };
