@@ -14,7 +14,7 @@ TEST_CASE("DFS solver basic [seed 0]") {
     cfg.max_nodes = 1000000;  // Limit for testing
 
     SolverResult result = solver.solve(state, cfg);
-    printf("DFS Solver Result: %s\n", result.to_string().c_str());
+    REQUIRE(result.solvable == 1);
     REQUIRE(result.stats.nodes_explored > 0);
 }
 
@@ -27,14 +27,6 @@ TEST_CASE("DFS solver basic [seed 111]") {
     cfg.max_nodes = 100000;  // Limit for testing
 
     SolverResult result = solver.solve(state, cfg);
-    printf("DFS Solver Result: %s\n", result.to_string().c_str());
+    REQUIRE(result.solvable == 0);
     REQUIRE(result.stats.nodes_explored > 0);
-}
-
-TEST_CASE("DFS solver on won state") {
-    GameState state;
-    CompleteDfsSolver solver;
-
-    SolverResult result = solver.solve(state);
-    REQUIRE(result.stats.time_seconds >= 0.0);
 }

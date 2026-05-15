@@ -11,7 +11,7 @@
 #include <unordered_set>
 #include <cassert>
 
- #define DEBUG_MOVE_ANALYSIS 1
+ // #define DEBUG_MOVE_ANALYSIS 1
 
 namespace {
 
@@ -335,7 +335,6 @@ namespace solitaire::util {
 // ============================================================================
 
 MoveList all_non_no_op_moves(const GameState& state) {
-    printf("Analyzing %zu legal moves for non-no-ops...\n", state.legal_moves().size());
     MoveList non_no_ops;
     
     // Precompute if revealing a new empty tableau will be productive

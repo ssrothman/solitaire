@@ -27,7 +27,8 @@ private:
         int depth = 0;
     };
 
-    bool dfs_explore_(SearchState& current,
+    // Iterative DFS exploration using explicit stack
+    void dfs_explore_(SearchState& initial_state,
                       std::unordered_set<std::size_t>& visited,
                       const SolverConfig& cfg,
                       SearchStats& stats,

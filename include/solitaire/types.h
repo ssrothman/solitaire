@@ -224,7 +224,7 @@ struct SolverConfig {
     int max_depth = DEFAULT_SOLVER_MAX_DEPTH;                            // Max depth before giving up
     int max_nodes = DEFAULT_SOLVER_MAX_NODES;                          // Max nodes to explore (100M)
     int seed = DEFAULT_SOLVER_SEED;                                    // RNG seed for randomized solvers
-    bool enable_productive_move_pruning = false;  // Prune moves that don't progress towards solution
+    bool enable_productive_move_pruning = true;  // Prune moves that don't progress towards solution
 };
 
 }  // namespace solitaire
