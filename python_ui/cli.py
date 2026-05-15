@@ -69,6 +69,28 @@ def _default_solver_cfg(state: GameState) -> SolverConfig:
     return cfg
 
 
+def _check_initial_solvability(seed: int, cfg: GameConfig) -> None:
+    """Check if the initial game state for a given seed is solvable using complete DFS."""
+    initial_state = new_game(seed, cfg)
+    solver = CompleteDfsSolver()
+    solver_cfg = _default_solver_cfg(initial_state)
+    
+    print(f"Checking solvability of seed {seed}...")
+    result = solver.solve(initial_state, solver_cfg)
+    
+    if result.solvable:
+        print(f"✓ Seed {seed} is SOLVABLE")
+        if result.solution:
+            print(f"  Solution length: {len(result.solution)} moves")
+    else:
+        print(f"✗ Seed {seed} is NOT solvable")
+    
+    print(f"  Nodes explored: {result.stats.nodes_explored}")
+    print(f"  Max depth: {result.stats.max_depth}")
+    print(f"  Moves pruned: {result.stats.moves_pruned}")
+    print(f"  Time: {result.stats.time_seconds:.4f}s")
+
+
 def _render_cards(text: str, use_color: bool) -> str:
     return _colorize_cards_in_text(text) if use_color else text
 
@@ -339,6 +361,28 @@ def _apply_choice_and_record(session: Session, choice: str) -> GameState:
     return session.state.apply_move(move)
 
 
+def _undo_last_move(session: Session) -> None:
+    """Undo the last move by removing it from history and replaying the sequence."""
+    if not session.history:
+        raise ValueError("no moves to undo")
+    
+    session.history.pop()
+    
+    # Recreate state from seed
+    state = new_game(session.seed, session.cfg)
+    
+    # Replay all remaining moves
+    for move_notation in session.history:
+        move = _parse_move_notation(state, move_notation)
+        if move is None:
+            raise ValueError(f"failed to parse move during replay: {move_notation}")
+        if not state.is_legal(move):
+            raise ValueError(f"illegal move during replay: {move_notation}")
+        state = state.apply_move(move)
+    
+    session.state = state
+
+
 def _auto_play(state: GameState, mode: str, seed: int = 0) -> PolicyResult:
     runner = HeuristicRunner()
     if mode == "greedy":
@@ -372,7 +416,7 @@ def interactive_loop(session: Session) -> None:
                 return
             if head in {"help", "h", "?"}:
                 print(
-                    "Commands: state, board, moves, cheat, history, move <n|notation>, status, auto greedy, auto random [seed], solve, reset [seed], quit"
+                    "Commands: state, board, moves, cheat, history, move <n|notation>, status, auto greedy, auto random [seed], solve, checkseed, undo, reset [seed], quit"
                 )
             elif head in {"state", "s"}:
                 print(_describe_state(session.state, session.use_color))
@@ -439,6 +483,11 @@ def interactive_loop(session: Session) -> None:
                 )
                 if result.solution:
                     print(format_moves(result.solution))
+            elif head == "checkseed":
+                _check_initial_solvability(session.seed, session.cfg)
+            elif head == "undo":
+                _undo_last_move(session)
+                print(_render_state_text(session.state, session.use_color))
             elif head == "reset":
                 seed = secrets.randbelow(2**31) if not tail else int(tail)
                 session.seed = seed
