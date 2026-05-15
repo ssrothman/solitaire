@@ -174,10 +174,8 @@ PYBIND11_MODULE(_solitaire_binding, m) {
         .def(py::init<>())
         .def_readwrite("max_depth", &solitaire::SolverConfig::max_depth)
         .def_readwrite("max_nodes", &solitaire::SolverConfig::max_nodes)
-        .def_readwrite("enable_pruning", &solitaire::SolverConfig::enable_pruning)
         .def_readwrite("seed", &solitaire::SolverConfig::seed)
-        .def_readwrite("enable_move_equivalence_pruning", &solitaire::SolverConfig::enable_move_equivalence_pruning)
-        .def_readwrite("enable_no_op_pruning", &solitaire::SolverConfig::enable_no_op_pruning);
+        .def_readwrite("enable_productive_move_pruning", &solitaire::SolverConfig::enable_productive_move_pruning);
 
     py::class_<solitaire::GameState>(m, "GameState")
         .def(py::init<>())

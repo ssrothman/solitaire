@@ -5,15 +5,29 @@
 using namespace solitaire;
 using namespace solitaire::solvers;
 
-TEST_CASE("DFS solver basic") {
+TEST_CASE("DFS solver basic [seed 0]") {
+    auto deck_ids = shuffle_deck(0);
+    GameState state = GameState::from_deck(deck_ids, GameConfig());
+
+    CompleteDfsSolver solver;
+    SolverConfig cfg;
+    cfg.max_nodes = 1000000;  // Limit for testing
+
+    SolverResult result = solver.solve(state, cfg);
+    printf("DFS Solver Result: %s\n", result.to_string().c_str());
+    REQUIRE(result.stats.nodes_explored > 0);
+}
+
+TEST_CASE("DFS solver basic [seed 111]") {
     auto deck_ids = shuffle_deck(111);
     GameState state = GameState::from_deck(deck_ids, GameConfig());
 
     CompleteDfsSolver solver;
     SolverConfig cfg;
-    cfg.max_nodes = 1000;  // Limit for testing
+    cfg.max_nodes = 100000;  // Limit for testing
 
     SolverResult result = solver.solve(state, cfg);
+    printf("DFS Solver Result: %s\n", result.to_string().c_str());
     REQUIRE(result.stats.nodes_explored > 0);
 }
 

@@ -11,7 +11,7 @@
 #include <unordered_set>
 #include <cassert>
 
-// #define DEBUG_MOVE_ANALYSIS 1
+ #define DEBUG_MOVE_ANALYSIS 1
 
 namespace {
 
@@ -176,25 +176,30 @@ void DFS_worker(const solitaire::GameState& current_state,
                 BoardStateCache& cache,
                 ProductiveStateSet& productive_states) {
 
+#ifdef DEBUG_MOVE_ANALYSIS
+    printf("DFS at depth %d for move %s\n", depth, solitaire::util::move_to_notation(initial_move).c_str());
+#endif
+
     const solitaire::MoveList avail_moves = current_state.legal_moves();
 
     bool productive = false;
     ReasonCode productive_reason = 0; // Default to invalid reason code
 
-    if (!productive) {
-        for (const auto& move : avail_moves) {
-            if (move.kind == solitaire::MoveKind::TableauToFoundation &&
-                !foundations_accessible[move.target.index()]) {
-                productive = true;
-                // Use positive reason codes for new foundation access, 
-                // with value = (index of newly accessible foundation + 1)
-                productive_reason = move.target.index() + 1; 
-                break;
-            }
+    for (const auto& move : avail_moves) {
+        if (move.kind == solitaire::MoveKind::TableauToFoundation &&
+            !foundations_accessible[move.target.index()]) {
+            productive = true;
+            // Use positive reason codes for new foundation access, 
+            // with value = (index of newly accessible foundation + 1)
+            productive_reason = move.target.index() + 1; 
+            break;
         }
     }
 
     if (productive) {
+#ifdef DEBUG_MOVE_ANALYSIS
+        printf("\tFound productive move: %s, reason code: %d\n", solitaire::util::move_to_notation(initial_move).c_str(), productive_reason);
+#endif
         cache[current_state.hash()]->productive = true;
         cache[current_state.hash()]->productive_reason = productive_reason;
 
@@ -226,6 +231,19 @@ void DFS_worker(const solitaire::GameState& current_state,
         current_node->children.insert(next_fingerprint);
 
         if (created) {
+#ifdef DEBUG_MOVE_ANALYSIS
+            printf("\tDelegating to next depth...\n", solitaire::util::move_to_notation(move).c_str());
+            printf("\tnext state:\n%s\n", next.to_string().c_str());
+            printf("\tnext move: %s\n", solitaire::util::move_to_notation(move).c_str());
+            printf("\tdepth: %d\n", depth + 1);
+            printf("\tinitial move: %s\n", solitaire::util::move_to_notation(initial_move).c_str());
+            printf("\tproductive states so far:\n");
+            for (const auto& [reason, hash] : productive_states) {
+                printf("\t\tReason code: %d, hash: %zu\n", reason, hash);
+            }
+            printf("\tcache size: %zu\n", cache.size());
+            printf("\tchild node fingerprint: %zu\n", child_node->myhash);
+#endif
             DFS_worker(
                 next,
                 foundations_accessible,
@@ -317,6 +335,7 @@ namespace solitaire::util {
 // ============================================================================
 
 MoveList all_non_no_op_moves(const GameState& state) {
+    printf("Analyzing %zu legal moves for non-no-ops...\n", state.legal_moves().size());
     MoveList non_no_ops;
     
     // Precompute if revealing a new empty tableau will be productive
@@ -409,12 +428,22 @@ MoveList all_non_no_op_moves(const GameState& state) {
                 foundations_accessible[move.target.index()] = true;
             }
         }
+#ifdef DEBUG_MOVE_ANALYSIS
+        printf("Foundations: ");
+        for (int i = 0; i < NUM_FOUNDATIONS; ++i) {
+            printf("%d ", foundations_accessible[i] ? 1 : 0);
+        }
+        printf("\n");
+#endif
                 
         // Run DFS for each nontrivial T-to-T move
         BoardStateCache cache;
         ProductiveStateSet productive_states;
 
         for (const auto& move : nontrivial_ttt) {
+#ifdef DEBUG_MOVE_ANALYSIS
+            printf("Starting DFS for move: %s\n", move_to_notation(move).c_str());
+#endif
             GameState next = state.apply_move(move);
 
             size_t next_repr = next.hash();
@@ -446,8 +475,8 @@ MoveList all_non_no_op_moves(const GameState& state) {
             const size_t move_key = initial_move.hash();
 
 #ifdef DEBUG_MOVE_ANALYSIS
-            printf("No-op move %s for reason code %d\n",
-                move_key.c_str(),
+            printf("No-op move %lu for reason code %d\n",
+                move_key,
                 productive.first
             );
 #endif

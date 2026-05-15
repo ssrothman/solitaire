@@ -2,6 +2,7 @@
 #include "solitaire/types.h"
 #include "solitaire/util/move_notation.h"
 #include <array>
+#include <sstream>
 
 namespace solitaire {
 
@@ -21,6 +22,15 @@ std::string PileId::to_string() const {
     // Append index only for Tableau and Foundation, which are kinds 0 and 1.
     result += (static_cast<int>(kind()) < 2) ? std::to_string(index()) : "";
     return result;
+}
+
+std::string SolverResult::to_string() const {
+    std::stringstream ss;
+    ss << "SolverResult: solvable=" << solvable
+       << ", nodes_explored=" << stats.nodes_explored
+       << ", time_seconds=" << stats.time_seconds
+       << ", solution_length=" << solution.size();
+    return ss.str();
 }
 
 bool Move::is_valid() const {

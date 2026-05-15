@@ -21,6 +21,7 @@ include(GNUInstallDirs)
 
 # Main solitaire library
 add_library(solitaire_core STATIC)
+set_target_properties(solitaire_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_sources(solitaire_core PRIVATE
     src/solitaire/types.cpp

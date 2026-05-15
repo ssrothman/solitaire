@@ -19,10 +19,8 @@ inline constexpr bool DEFAULT_UNLIMITED_RECYCLE = true;
 // Solver configuration
 inline constexpr int DEFAULT_SOLVER_MAX_DEPTH = 100000;
 inline constexpr int DEFAULT_SOLVER_MAX_NODES = 10000000;
-inline constexpr bool DEFAULT_SOLVER_ENABLE_PRUNING = false;
 inline constexpr int DEFAULT_SOLVER_SEED = 0;
-inline constexpr bool DEFAULT_SOLVER_ENABLE_MOVE_EQUIVALENCE_PRUNING = true;
-inline constexpr bool DEFAULT_SOLVER_ENABLE_NO_OP_PRUNING = false;
+inline constexpr bool DEFAULT_ENABLE_PRODUCTIVE_MOVE_PRUNING = true;
 
 }  // namespace solitaire
 

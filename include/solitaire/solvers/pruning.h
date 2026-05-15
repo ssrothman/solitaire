@@ -23,21 +23,15 @@ public:
     virtual MoveList filter(const GameState& state, const MoveList& moves) const = 0;
 };
 
-class EquivalencePruningStrategy : public IPruningStrategy {
-public:
-    MoveList filter(const GameState& state, const MoveList& moves) const override;
-};
-
-class NoOpPruningStrategy : public IPruningStrategy {
-public:
-    MoveList filter(const GameState& state, const MoveList& moves) const override;
-};
-
 class CompoundPruningStrategy : public IPruningStrategy {
 public:
     CompoundPruningStrategy() = default;
 
-    void add_strategy(std::unique_ptr<IPruningStrategy> strategy);
+    void add_strategy(std::unique_ptr<IPruningStrategy> strategy){
+        if (strategy) {
+           _strategies.push_back(std::move(strategy));
+        }
+    }
 
     bool empty() const { return _strategies.empty(); }
 

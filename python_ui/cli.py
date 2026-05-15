@@ -112,7 +112,7 @@ def _render_state_text(state: GameState, use_color: bool) -> str:
 
 def _describe_state(state: GameState, use_color: bool = True) -> str:
     lines = [
-        f"turns={state.turn_count}, stock_cycle={state.stock_cycle_position}",
+        f"turns={state.turn_count}",
         f"stock={state.stock_size()} waste={state.waste_size()} won={state.is_won()} lost={state.is_lost()}",
         "",
         _render_state_text(state, use_color),

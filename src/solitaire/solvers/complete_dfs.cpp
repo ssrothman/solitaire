@@ -7,6 +7,9 @@ namespace solitaire::solvers {
 
 SolverResult CompleteDfsSolver::solve(const GameState& initial,
                                        const SolverConfig& cfg) const {
+
+    printf("Starting DFS solver with max_depth=%d, max_nodes=%d\n", cfg.max_depth, cfg.max_nodes);
+
     SolverResult result;
     SearchStats stats;
     MoveList solution;
@@ -47,6 +50,9 @@ bool CompleteDfsSolver::dfs_explore_(SearchState& current,
                                       const SolverConfig& cfg, SearchStats& stats,
                                       MoveList& solution,
                                       const IPruningStrategy* pruning) const {
+
+    printf("Exploring depth %d, nodes explored %d\n", current.depth, stats.nodes_explored);
+
     // Check depth and node limits
     if (current.depth > cfg.max_depth || stats.nodes_explored > cfg.max_nodes) {
         return false;
@@ -60,26 +66,31 @@ bool CompleteDfsSolver::dfs_explore_(SearchState& current,
     visited.insert(state_hash);
     stats.nodes_explored++;
     stats.max_depth = std::max(stats.max_depth, current.depth);
+    printf("\t Visited states: %zu (current depth: %d)\n", visited.size(), current.depth);
 
     // Check win condition
     if (current.state.is_won()) {
         solution = current.path;
         return true;
     }
+    printf("\tNot a winning state\n");
 
     // Check loss condition
     if (current.state.is_lost()) {
         return false;
     }
+    printf("\tNot a losing state\n");
 
     // Generate legal moves
     MoveList legal = current.state.legal_moves();
+    printf("\tGenerated %zu legal moves\n", legal.size());
 
     if (pruning) {
         const auto before = legal.size();
         legal = pruning->filter(current.state, legal);
         stats.moves_pruned += static_cast<int>(before - legal.size());
     }
+    printf("\tAfter pruning, %zu moves remain\n", legal.size());
 
     // Explore each move
     for (const auto& move : legal) {

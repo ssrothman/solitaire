@@ -35,10 +35,8 @@ public:
 TEST_CASE("Pruning: compound strategy applies filters in sequence", "[pruning]") {
     GameState state = GameState::from_deck(shuffle_deck(42), GameConfig(3, true));
     MoveList moves = state.legal_moves();
-    if (moves.size() < 2) {
-        SKIP("Need at least two legal moves to validate composition");
-    }
-
+    REQUIRE(moves.size() >= 2);  // Ensure we have enough moves to test
+    
     CompoundPruningStrategy compound;
     compound.add_strategy(std::make_unique<KeepFirstMoveStrategy>());
     compound.add_strategy(std::make_unique<KeepLastMoveStrategy>());
@@ -53,8 +51,7 @@ TEST_CASE("Pruning: compound strategy applies filters in sequence", "[pruning]")
 
 TEST_CASE("Pruning: factory builds enabled strategies", "[pruning]") {
     SolverConfig cfg;
-    cfg.enable_move_equivalence_pruning = true;
-    cfg.enable_no_op_pruning = true;
+    cfg.enable_productive_move_pruning = true;
 
     auto strategy = make_pruning_strategy(cfg);
     REQUIRE(strategy != nullptr);
@@ -68,8 +65,7 @@ TEST_CASE("Pruning: factory builds enabled strategies", "[pruning]") {
 
 TEST_CASE("Pruning: factory returns no strategy when disabled", "[pruning]") {
     SolverConfig cfg;
-    cfg.enable_move_equivalence_pruning = false;
-    cfg.enable_no_op_pruning = false;
+    cfg.enable_productive_move_pruning = false;
 
     auto strategy = make_pruning_strategy(cfg);
     REQUIRE(strategy == nullptr);

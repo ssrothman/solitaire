@@ -1,45 +1,6 @@
 #include "solitaire/solvers/pruning.h"
-
+#include <unordered_set>
 namespace solitaire::solvers {
-
-MoveList EquivalencePruningStrategy::filter(const GameState& state,
-                                            const MoveList& moves) const {
-    auto canonical_indices = util::find_move_equivalence_classes(state, moves);
-    MoveList filtered;
-    filtered.reserve(canonical_indices.size());
-    for (std::size_t idx : canonical_indices) {
-        filtered.push_back(moves[idx]);
-    }
-    return filtered;
-}
-
-MoveList NoOpPruningStrategy::filter(const GameState& state,
-                                       const MoveList& moves) const {
-    const MoveList productive_moves = util::all_non_no_op_moves(state);
-
-    MoveList filtered;
-    filtered.reserve(moves.size());
-
-    for (const auto& move : moves) {
-        for (const auto& productive_move : productive_moves) {
-            if (move.kind == productive_move.kind &&
-                move.source == productive_move.source &&
-                move.target == productive_move.target &&
-                move.card_count == productive_move.card_count) {
-                filtered.push_back(move);
-                break;
-            }
-        }
-    }
-
-    return filtered;
-}
-
-void CompoundPruningStrategy::add_strategy(std::unique_ptr<IPruningStrategy> strategy) {
-    if (strategy) {
-        _strategies.push_back(std::move(strategy));
-    }
-}
 
 MoveList CompoundPruningStrategy::filter(const GameState& state,
                                          const MoveList& moves) const {
@@ -50,14 +11,30 @@ MoveList CompoundPruningStrategy::filter(const GameState& state,
     return current;
 }
 
+class ProductiveMovePruningStrategy : public IPruningStrategy {
+public:
+    MoveList filter(const GameState& state, const MoveList& moves) const override {
+        MoveList productive_moves = util::all_non_no_op_moves(state);
+        std::unordered_set<size_t> productive_hashes;
+        for (const auto& move : productive_moves) {
+            productive_hashes.insert(move.hash());
+        }
+        
+        MoveList filtered;
+        for (const auto& move : moves) {
+            if (productive_hashes.count(move.hash()) > 0) {
+                filtered.push_back(move);
+            }
+        }
+        return filtered;
+    }
+};
+
 std::unique_ptr<CompoundPruningStrategy> make_pruning_strategy(const SolverConfig& cfg) {
     auto strategy = std::make_unique<CompoundPruningStrategy>();
 
-    if (cfg.enable_move_equivalence_pruning) {
-        strategy->add_strategy(std::make_unique<EquivalencePruningStrategy>());
-    }
-    if (cfg.enable_no_op_pruning) {
-        strategy->add_strategy(std::make_unique<NoOpPruningStrategy>());
+    if (cfg.enable_productive_move_pruning) {
+        strategy->add_strategy(std::make_unique<ProductiveMovePruningStrategy>());
     }
 
     if (strategy->empty()) {

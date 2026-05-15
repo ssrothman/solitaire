@@ -209,6 +209,8 @@ struct SolverResult {
     bool solvable = false;
     MoveList solution;  // Empty if unsolvable
     SearchStats stats;
+
+    std::string to_string() const;
 };
 
 struct PolicyResult {
@@ -221,10 +223,8 @@ struct PolicyResult {
 struct SolverConfig {
     int max_depth = DEFAULT_SOLVER_MAX_DEPTH;                            // Max depth before giving up
     int max_nodes = DEFAULT_SOLVER_MAX_NODES;                          // Max nodes to explore (100M)
-    bool enable_pruning = DEFAULT_SOLVER_ENABLE_PRUNING;               // Optional aggressive pruning
     int seed = DEFAULT_SOLVER_SEED;                                    // RNG seed for randomized solvers
-    bool enable_move_equivalence_pruning = DEFAULT_SOLVER_ENABLE_MOVE_EQUIVALENCE_PRUNING;  // Prune equivalent moves
-    bool enable_no_op_pruning = DEFAULT_SOLVER_ENABLE_NO_OP_PRUNING;   // Prune no-op moves
+    bool enable_productive_move_pruning = false;  // Prune moves that don't progress towards solution
 };
 
 }  // namespace solitaire
