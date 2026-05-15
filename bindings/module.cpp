@@ -195,7 +195,6 @@ PYBIND11_MODULE(_solitaire_binding, m) {
         .def("has_waste", &solitaire::GameState::has_waste)
         .def_property_readonly("config", &solitaire::GameState::config, py::return_value_policy::reference_internal)
         .def_property_readonly("turn_count", &solitaire::GameState::turn_count)
-        .def_property_readonly("stock_cycle_position", &solitaire::GameState::stock_cycle_position)
         .def("legal_moves", &solitaire::GameState::legal_moves)
         .def("is_legal", &solitaire::GameState::is_legal)
         .def("can_move_to_foundation", &solitaire::GameState::can_move_to_foundation)

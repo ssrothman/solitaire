@@ -197,7 +197,7 @@ TEST_CASE("Move analysis: stock cycle recurrence is treated as no-op", "[move_an
 
     GameState recycled = state.apply_move(recycle);
     REQUIRE(recycled.same_position(start));
-    REQUIRE(recycled != start);
+    REQUIRE(recycled == start);
 }
 
 TEST_CASE("Move analysis: illegal moves are treated as no-ops", "[move_analysis]") {

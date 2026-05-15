@@ -89,13 +89,13 @@ bool check_empty_tableaus_productive(const solitaire::GameState& state){
 using ReasonCode = int8_t;
 
 struct BoardStateInfo {
-    std::string myhash;
+    size_t myhash;
 
     uint8_t min_depth;
     solitaire::Move initial_move;
     bool productive;
     ReasonCode productive_reason;
-    std::unordered_set<std::string> children;
+    std::unordered_set<size_t> children;
 
     BoardStateInfo(uint8_t depth, const solitaire::Move& move)
         : min_depth(depth), initial_move(move), 
@@ -103,8 +103,8 @@ struct BoardStateInfo {
         children() {}
 };
 
-using BoardStateCache = std::unordered_map<std::string, std::shared_ptr<BoardStateInfo>>;
-using ProductiveStateSet = std::unordered_map<ReasonCode, std::string>; 
+using BoardStateCache = std::unordered_map<size_t, std::shared_ptr<BoardStateInfo>>;
+using ProductiveStateSet = std::unordered_map<ReasonCode, size_t>; 
 
 using FoundationsArray = std::array<bool, solitaire::NUM_FOUNDATIONS>;
 
@@ -143,7 +143,7 @@ void propagate_shorter_path(const std::shared_ptr<BoardStateInfo>& current_info,
 std::pair<std::shared_ptr<BoardStateInfo>, bool> get_or_create_node(
     BoardStateCache& cache,
     ProductiveStateSet& productive_states,
-    const std::string& fingerprint,
+    const size_t& fingerprint,
     uint8_t depth,
     const solitaire::Move& initial_move) {
 
@@ -195,11 +195,11 @@ void DFS_worker(const solitaire::GameState& current_state,
     }
 
     if (productive) {
-        cache[current_state.board_fingerprint()]->productive = true;
-        cache[current_state.board_fingerprint()]->productive_reason = productive_reason;
+        cache[current_state.hash()]->productive = true;
+        cache[current_state.hash()]->productive_reason = productive_reason;
 
         if (productive_states.count(productive_reason) == 0 || depth < cache[productive_states[productive_reason]]->min_depth) {
-            productive_states[productive_reason] = current_state.board_fingerprint();
+            productive_states[productive_reason] = current_state.hash();
         } 
         return;
     }
@@ -216,7 +216,7 @@ void DFS_worker(const solitaire::GameState& current_state,
         }
 
         solitaire::GameState next = current_state.apply_move(move);
-        const std::string next_fingerprint = next.board_fingerprint();
+        const size_t next_fingerprint = next.hash();
         const auto [child_node, created] = get_or_create_node(
             cache, productive_states,
              next_fingerprint, 
@@ -417,7 +417,7 @@ MoveList all_non_no_op_moves(const GameState& state) {
         for (const auto& move : nontrivial_ttt) {
             GameState next = state.apply_move(move);
 
-            std::string next_repr = next.board_fingerprint();
+            size_t next_repr = next.hash();
             const auto [root_node, created] = get_or_create_node(
                 cache, productive_states, 
                 next_repr, 1, 
@@ -439,11 +439,11 @@ MoveList all_non_no_op_moves(const GameState& state) {
         }
 
         // Collect all moves that lead to productive states
-        std::unordered_set<std::string> emitted_moves;
+        std::unordered_set<size_t> emitted_moves;
         for (const auto& productive : productive_states) {
             const auto& initial_move = cache[productive.second]->initial_move;
 
-            const std::string move_key = util::move_to_notation(initial_move);
+            const size_t move_key = initial_move.hash();
 
 #ifdef DEBUG_MOVE_ANALYSIS
             printf("No-op move %s for reason code %d\n",

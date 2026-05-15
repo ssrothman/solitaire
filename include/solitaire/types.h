@@ -169,6 +169,14 @@ struct Move {
                kind == other.kind &&
                card_count == other.card_count;
     }
+
+    size_t hash() const {
+        size_t h = source.raw_data();
+        h = h << 8 | target.raw_data();
+        h = h << 3 | static_cast<size_t>(kind);
+        h = h << 8 | static_cast<size_t>(card_count);
+        return h;
+    } 
 };
 
 using MoveList = std::vector<Move>;

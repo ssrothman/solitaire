@@ -17,8 +17,7 @@ GameState::GameState()
             _stock{}, 
             _waste{}, 
             _config(GameConfig()),
-            _turn_count(0),
-            _stock_cycle_pos(0) {}
+            _turn_count(0) {}
 
 GameState::GameState(const GameConfig& cfg) 
         : _tableau_face_down_cards{},
@@ -27,8 +26,7 @@ GameState::GameState(const GameConfig& cfg)
             _stock{}, 
             _waste{}, 
             _config(cfg),
-            _turn_count(0),
-            _stock_cycle_pos(0) {}
+            _turn_count(0) {}
 
 GameState GameState::from_deck(const std::vector<Card>& deck,
                                 const GameConfig& cfg) {
@@ -319,11 +317,6 @@ bool GameState::operator==(const GameState& other) const {
         return false;
     }
 
-    // Compare metadata
-    if (_stock_cycle_pos != other._stock_cycle_pos) {
-        return false;
-    }
-
     return true;
 }
 
@@ -379,21 +372,18 @@ std::size_t GameState::hash() const {
         h ^= _tableau_face_down[i] + 0x9e3779b9 + (h << 6) + (h >> 2);
     }
 
+    // Hash stock 
+    for (const auto& card : _stock) {
+        h ^= std::hash<Card>()(card) + 0x9e3779b9 + (h << 6) + (h >> 2);
+    }
     // Hash foundation
     for (int i = 0; i < NUM_FOUNDATIONS; ++i) {
         h ^= std::hash<Card>()(_foundation[i]) + 0x9e3779b9 + (h << 6) + (h >> 2);
     }
-
-    // Hash stock and waste
-    for (const auto& card : _stock) {
-        h ^= std::hash<Card>()(card) + 0x9e3779b9 + (h << 6) + (h >> 2);
-    }
+    // Hash waste
     for (const auto& card : _waste) {
         h ^= std::hash<Card>()(card) + 0x9e3779b9 + (h << 6) + (h >> 2);
     }
-
-    // Hash cycle position
-    h ^= _stock_cycle_pos + 0x9e3779b9 + (h << 6) + (h >> 2);
 
     return h;
 }
@@ -429,37 +419,6 @@ std::string GameState::to_string() const {
         ss << "empty";
     }
     ss << "\n";
-    return ss.str();
-}
-
-std::string GameState::board_fingerprint() const {
-    std::stringstream ss;
-    // Tableau: include face-up sequences and face-down counts
-    for (int i = 0; i < NUM_TABLEAU_PILES; ++i) {
-        ss << "T" << i << ":";
-        for (const auto& card : _tableau_face_up[i]) {
-            ss << card.to_string() << ",";
-        }
-        ss << "|" << _tableau_face_down_cards[i].size() << ";";
-    }
-
-    // Foundation
-    ss << "F:";
-    for (int i = 0; i < NUM_FOUNDATIONS; ++i) {
-        ss << _foundation[i].to_string() << ",";
-    }
-    ss << ";";
-
-    // Stock content (order matters) and waste content
-    ss << "S:";
-    for (const auto& card : _stock) {
-        ss << card.to_string() << ",";
-    }
-    ss << ";W:";
-    for (const auto& card : _waste) {
-        ss << card.to_string() << ",";
-    }
-
     return ss.str();
 }
 
@@ -582,7 +541,6 @@ void GameState::_recycle_stock() {
     }
 
     _turn_count++;
-    _stock_cycle_pos++;
 }
 
 void GameState::_reveal_tableau_card(int pile) {

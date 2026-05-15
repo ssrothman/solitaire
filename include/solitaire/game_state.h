@@ -59,7 +59,6 @@ public:
 
     // Metadata
     int turn_count() const { return _turn_count; }
-    int stock_cycle_position() const { return _stock_cycle_pos; }
 
     // ========================================================================
     // Move Generation and Validation
@@ -101,17 +100,9 @@ public:
     bool same_position(const GameState& other) const;
 
     // Hash for visited-state tracking in solvers
-    // Includes stock cycle position to avoid false merges
     std::size_t hash() const;
 
     std::string to_string() const;
-    // A compact fingerprint of the board-only state used for visited-set
-    // comparisons. The fingerprint includes tableau, foundation, stock, and
-    // waste contents but intentionally excludes solver metadata such as
-    // `_turn_count` and `_stock_cycle_pos` so that positions differing only
-    // by those fields are considered equivalent for board-based equivalence.
-    // This function is stable and suitable for hashing and visited-set keys.
-    std::string board_fingerprint() const;
 
 private:
     // ========================================================================
@@ -137,7 +128,6 @@ private:
 
     // Metadata for solver state hashing
     int _turn_count = 0;        // Increments each stock cycle
-    int _stock_cycle_pos = 0;   // Current offset in stock recycle sequence
 
     // ========================================================================
     // Internal Helper Methods
