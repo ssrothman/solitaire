@@ -205,8 +205,18 @@ struct SearchStats {
     int moves_pruned = 0;  // Optional: tracks pruned moves for metrics
 };
 
+enum class SolverStatus : std::uint8_t {
+    Success = 0,
+    ReachedMaxDepth = 1,
+    ReachedMaxNodes = 2,
+    InvalidState = 3
+};
+
+std::string to_string(SolverStatus status);
+
 struct SolverResult {
     bool solvable = false;
+    SolverStatus status = SolverStatus::InvalidState;  // Initialize to invalid - solver should always overwrite this
     MoveList solution;  // Empty if unsolvable
     SearchStats stats;
 

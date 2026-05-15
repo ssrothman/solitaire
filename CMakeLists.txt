@@ -124,6 +124,10 @@ if(BUILD_BENCHMARKS)
 
     add_executable(benchmark_move_generation benchmarks/cpp/benchmark_move_generation.cpp)
     target_link_libraries(benchmark_move_generation PRIVATE solitaire_core)
+
+    add_executable(benchmark_completeDFS benchmarks/cpp/benchmark_completeDFS.cpp)
+    target_link_libraries(benchmark_completeDFS PRIVATE solitaire_core)
+
 endif()
 
 # Install headers

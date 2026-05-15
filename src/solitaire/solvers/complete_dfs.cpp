@@ -17,6 +17,7 @@ SolverResult CompleteDfsSolver::solve(const GameState& initial,
     // Check if already won
     if (initial.is_won()) {
         result.solvable = true;
+        result.status = SolverStatus::Success;
         auto end_time = std::chrono::high_resolution_clock::now();
         stats.time_seconds =
             std::chrono::duration<double>(end_time - start_time).count();
@@ -34,6 +35,13 @@ SolverResult CompleteDfsSolver::solve(const GameState& initial,
     
     if (!solution.empty()) {
         result.solvable = true;
+        result.status = SolverStatus::Success;
+    } else if (stats.nodes_explored >= cfg.max_nodes) {
+        result.status = SolverStatus::ReachedMaxNodes;
+    } else if (stats.max_depth >= cfg.max_depth) {
+        result.status = SolverStatus::ReachedMaxDepth;
+    } else {
+        result.status = SolverStatus::Success;  // Unsolvable, but fully explored
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();

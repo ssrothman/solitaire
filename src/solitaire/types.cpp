@@ -6,6 +6,21 @@
 
 namespace solitaire {
 
+std::string to_string(SolverStatus status) {
+    switch (status) {
+        case SolverStatus::Success:
+            return "Success";
+        case SolverStatus::ReachedMaxDepth:
+            return "MaxDepth";
+        case SolverStatus::ReachedMaxNodes:
+            return "MaxNodes";
+        case SolverStatus::InvalidState:
+            return "Invalid";
+        default:
+            return "Unknown";
+    }
+}
+
 std::string Card::to_string() const {
     constexpr std::array<const char*, 14> rank_chars = {{
         "?", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"
