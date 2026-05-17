@@ -113,7 +113,6 @@ MoveList GameState::legal_moves() const {
             Move m;
             m.source = PileId(PileKind::Waste, 0);
             m.target = PileId(PileKind::Foundation, static_cast<int>(top.suit()));
-            m.kind = MoveKind::WasteToFoundation;
             m.card_count = 1;
             moves.push_back(m);
         }
@@ -136,7 +135,7 @@ bool GameState::is_legal(const Move& move) const {
     const int src = move.source.index();
     const int tgt = move.target.index();
 
-    switch (move.kind) {
+    switch (move.kind()) {
         case MoveKind::TableauToTableau: {
             const auto& src_pile = _tableau_face_up[src];
             if (move.card_count > static_cast<int>(src_pile.size())) {
@@ -209,7 +208,7 @@ bool GameState::can_move_to_tableau(const Card& card, uint8_t tableau_idx) const
 GameState GameState::apply_move(const Move& move) const {
     GameState next(*this);
 
-    switch (move.kind) {
+    switch (move.kind()) {
         case MoveKind::TableauToTableau:
             next._move_tableau_to_tableau(move.source.index(), 
                                           move.target.index(),
@@ -520,7 +519,6 @@ void GameState::_generate_tableau_to_tableau_moves(MoveList& moves) const {
                     Move m;
                     m.source = PileId(PileKind::Tableau, src);
                     m.target = PileId(PileKind::Tableau, tgt);
-                    m.kind = MoveKind::TableauToTableau;
                     m.card_count = move_count;
                     moves.push_back(m);
                 }
@@ -540,7 +538,6 @@ void GameState::_generate_tableau_to_foundation_moves(MoveList& moves) const {
             Move m;
             m.source = PileId(PileKind::Tableau, src);
             m.target = PileId(PileKind::Foundation, static_cast<int>(card.suit()));
-            m.kind = MoveKind::TableauToFoundation;
             m.card_count = 1;
             moves.push_back(m);
         }
@@ -560,7 +557,6 @@ void GameState::_generate_waste_moves(MoveList& moves) const {
             Move m;
             m.source = PileId(PileKind::Waste, 0);
             m.target = PileId(PileKind::Tableau, tgt);
-            m.kind = MoveKind::WasteToTableau;
             m.card_count = 1;
             moves.push_back(m);
         }
@@ -573,7 +569,6 @@ void GameState::_generate_stock_moves(MoveList& moves) const {
         Move m;
         m.source = PileId(PileKind::Stock, 0);
         m.target = PileId(PileKind::Waste, 0);
-        m.kind = MoveKind::StockDraw;
         m.card_count = _config.cards_per_draw();
         moves.push_back(m);
     } else if (!_waste.empty() && _config.unlimited_recycle()) {
@@ -581,7 +576,6 @@ void GameState::_generate_stock_moves(MoveList& moves) const {
         Move m;
         m.source = PileId(PileKind::Waste, 0);
         m.target = PileId(PileKind::Stock, 0);
-        m.kind = MoveKind::StockRecycle;
         m.card_count = static_cast<int>(_waste.size());
         moves.push_back(m);
     }

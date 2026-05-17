@@ -123,23 +123,21 @@ PYBIND11_MODULE(_solitaire_binding, m) {
 
     py::class_<solitaire::Move>(m, "Move")
         .def(py::init<>())
-        .def(py::init<solitaire::PileId, solitaire::PileId, solitaire::MoveKind, int>())
+        .def(py::init<solitaire::PileId, solitaire::PileId, int>())
         .def_readwrite("source", &solitaire::Move::source)
         .def_readwrite("target", &solitaire::Move::target)
-        .def_readwrite("kind", &solitaire::Move::kind)
         .def_readwrite("card_count", &solitaire::Move::card_count)
         .def("is_valid", &solitaire::Move::is_valid)
+        .def("kind", &solitaire::Move::kind)
         .def("to_string", &solitaire::Move::to_string)
         .def("__eq__", [](const solitaire::Move& a, const solitaire::Move& b) {
             return a.source == b.source &&
                    a.target == b.target &&
-                   a.kind == b.kind &&
                    a.card_count == b.card_count;
         })
         .def("__ne__", [](const solitaire::Move& a, const solitaire::Move& b) {
             return a.source != b.source ||
                    a.target != b.target ||
-                   a.kind != b.kind ||
                    a.card_count != b.card_count;
         })
         .def("__repr__", [](const solitaire::Move& move) { return move.to_string(); });

@@ -45,7 +45,7 @@ TEST_CASE("Pruning: compound strategy applies filters in sequence", "[pruning]")
     REQUIRE(filtered.size() == 1);
     REQUIRE(filtered.front().source == moves.front().source);
     REQUIRE(filtered.front().target == moves.front().target);
-    REQUIRE(filtered.front().kind == moves.front().kind);
+    REQUIRE(filtered.front().kind() == moves.front().kind());
     REQUIRE(filtered.front().card_count == moves.front().card_count);
 }
 

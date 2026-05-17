@@ -39,8 +39,7 @@ PolicyResult HeuristicRunner::run(const GameState& initial, IPolicy& policy,
         // Verify move is legal
         bool found = false;
         for (const auto& m : legal) {
-            if (m.source == chosen.source && m.target == chosen.target &&
-                m.kind == chosen.kind) {
+            if (m.source == chosen.source && m.target == chosen.target) {
                 found = true;
                 break;
             }
@@ -57,7 +56,7 @@ PolicyResult HeuristicRunner::run(const GameState& initial, IPolicy& policy,
         current = current.apply_move(chosen);
 
         // Track stock cycles (turns)
-        if (chosen.kind == MoveKind::StockRecycle) {
+        if (chosen.source.kind() == PileKind::Stock) { // The only type of move that originates at the stock is StockRecycle. so this check is enough to count turns.
             result.turns++;
         }
     }

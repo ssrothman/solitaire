@@ -152,12 +152,11 @@ static_assert(sizeof(PileId) == 1);  // Ensure PileId is exactly 1 byte for comp
 struct Move {
     PileId source;
     PileId target;
-    MoveKind kind;
     std::uint8_t card_count;  // For tableau sequences, how many cards to move
 
-    Move() : source(), target(), kind(MoveKind::StockDraw), card_count(0) {}
-    Move(PileId src, PileId tgt, MoveKind k, std::uint8_t cnt)
-        : source(src), target(tgt), kind(k), card_count(cnt) {}
+    Move() : source(), target(), card_count(0) {}
+    Move(PileId src, PileId tgt, std::uint8_t cnt)
+        : source(src), target(tgt), card_count(cnt) {}
 
     // Checks move shape only (pile kinds/indices/card_count), not game-state legality.
     bool is_valid() const;
@@ -166,8 +165,26 @@ struct Move {
     bool operator==(const Move& other) const {
         return source == other.source &&
                target == other.target &&
-               kind == other.kind &&
                card_count == other.card_count;
+    }
+
+    MoveKind kind() const {
+        if (source.kind() == PileKind::Tableau && target.kind() == PileKind::Tableau) {
+            return MoveKind::TableauToTableau;
+        } else if (source.kind() == PileKind::Tableau && target.kind() == PileKind::Foundation) {
+            return MoveKind::TableauToFoundation;
+        } else if (source.kind() == PileKind::Waste && target.kind() == PileKind::Tableau) {
+            return MoveKind::WasteToTableau;
+        } else if (source.kind() == PileKind::Waste && target.kind() == PileKind::Foundation) {
+            return MoveKind::WasteToFoundation;
+        } else if (source.kind() == PileKind::Stock && target.kind() == PileKind::Waste) {
+            return MoveKind::StockDraw;
+        } else if (source.kind() == PileKind::Waste && target.kind() == PileKind::Stock) {
+            return MoveKind::StockRecycle;
+        }
+
+        // Invalid move shape - should not happen if is_valid() is checked
+        return static_cast<MoveKind>(255);  // Invalid
     }
 
     std::string to_string() const;
@@ -175,12 +192,11 @@ struct Move {
     size_t hash() const {
         size_t h = source.raw_data();
         h = h << 8 | target.raw_data();
-        h = h << 3 | static_cast<size_t>(kind);
         h = h << 8 | static_cast<size_t>(card_count);
         return h;
     } 
 };
-static_assert(sizeof(Move) == 4);  // Ensure Move is exactly 4 bytes for compact storage
+static_assert(sizeof(Move) == 3);  // Ensure Move is exactly 3 bytes for compact storage
 
 using MoveList = std::vector<Move>;
 

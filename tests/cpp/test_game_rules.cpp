@@ -75,7 +75,6 @@ TEST_CASE("Removing last face-up tableau card reveals hidden card") {
 
     Move move(PileId(PileKind::Tableau, 1),
               PileId(PileKind::Foundation, static_cast<int>(Suit::Hearts)),
-              MoveKind::TableauToFoundation,
               1);
     REQUIRE(state.is_legal(move));
 
@@ -108,7 +107,6 @@ TEST_CASE("Moving multiple tableau cards preserves their order") {
     Move move_to_tableau(
         PileId(PileKind::Tableau, 1),
         PileId(PileKind::Tableau, 0),
-        MoveKind::TableauToTableau,
         1);
     REQUIRE(state.is_legal(move_to_tableau));
     state = state.apply_move(move_to_tableau);
@@ -116,7 +114,6 @@ TEST_CASE("Moving multiple tableau cards preserves their order") {
     Move move_run(
         PileId(PileKind::Tableau, 0),
         PileId(PileKind::Tableau, 2),
-        MoveKind::TableauToTableau,
         2);
     REQUIRE(state.is_legal(move_run));
 
@@ -129,32 +126,26 @@ TEST_CASE("Move structural validation") {
     SECTION("Valid move shapes") {
         REQUIRE(Move(PileId(PileKind::Tableau, 0),
                      PileId(PileKind::Tableau, 1),
-                     MoveKind::TableauToTableau,
                      2)
                     .is_valid());
         REQUIRE(Move(PileId(PileKind::Tableau, 3),
                      PileId(PileKind::Foundation, 2),
-                     MoveKind::TableauToFoundation,
                      1)
                     .is_valid());
         REQUIRE(Move(PileId(PileKind::Waste, 0),
                      PileId(PileKind::Tableau, 4),
-                     MoveKind::WasteToTableau,
                      1)
                     .is_valid());
         REQUIRE(Move(PileId(PileKind::Waste, 0),
                      PileId(PileKind::Foundation, 1),
-                     MoveKind::WasteToFoundation,
                      1)
                     .is_valid());
         REQUIRE(Move(PileId(PileKind::Stock, 0),
                      PileId(PileKind::Waste, 0),
-                     MoveKind::StockDraw,
                      3)
                     .is_valid());
         REQUIRE(Move(PileId(PileKind::Waste, 0),
                      PileId(PileKind::Stock, 0),
-                     MoveKind::StockRecycle,
                      0)
                     .is_valid());
     }
@@ -162,22 +153,18 @@ TEST_CASE("Move structural validation") {
     SECTION("Invalid move shapes") {
         REQUIRE_FALSE(Move(PileId(PileKind::Tableau, 1),
                            PileId(PileKind::Tableau, 1),
-                           MoveKind::TableauToTableau,
                            1)
                           .is_valid());
         REQUIRE_FALSE(Move(PileId(PileKind::Tableau, 0),
                            PileId(PileKind::Foundation, 0),
-                           MoveKind::TableauToFoundation,
                            2)
                           .is_valid());
         REQUIRE_FALSE(Move(PileId(PileKind::Waste, 1),
                            PileId(PileKind::Tableau, 0),
-                           MoveKind::WasteToTableau,
                            1)
                           .is_valid());
         REQUIRE_FALSE(Move(PileId(PileKind::Stock, 0),
                            PileId(PileKind::Waste, 0),
-                           MoveKind::StockDraw,
                            0)
                           .is_valid());
     }

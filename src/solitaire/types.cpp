@@ -59,7 +59,7 @@ bool Move::is_valid() const {
     const int src = source.index();
     const int tgt = target.index();
 
-    switch (kind) {
+    switch (kind()) {
         case MoveKind::TableauToTableau:
             return source.kind() == PileKind::Tableau &&
                    target.kind() == PileKind::Tableau &&

@@ -18,8 +18,7 @@ bool is_no_op_move(const GameState& state, const Move& move) {
     for (const auto& m : non_no_ops) {
         if (m.source == move.source &&
             m.target == move.target &&
-            m.card_count == move.card_count &&
-            m.kind == move.kind) {
+            m.card_count == move.card_count) {
             return false;  // Found in non-no-ops list, so NOT a no-op
         }
     }
@@ -146,7 +145,7 @@ TEST_CASE("Move analysis: useless stock milling is detected as a no-op", "[move_
     MoveList moves = state.legal_moves();
 
     REQUIRE(moves.size() == 1);
-    REQUIRE(moves.front().kind == MoveKind::StockDraw);
+    REQUIRE(moves.front().kind() == MoveKind::StockDraw);
     REQUIRE(is_no_op_move(state, moves.front()));
 }
 
@@ -156,7 +155,7 @@ TEST_CASE("Move analysis: progress moves are not treated as no-ops", "[move_anal
 
     bool checked_progress_move = false;
     for (const auto& move : moves) {
-        if (move.kind == MoveKind::TableauToFoundation) {
+        if (move.kind() == MoveKind::TableauToFoundation) {
             REQUIRE_FALSE(is_no_op_move(state, move));
             checked_progress_move = true;
             break;
@@ -171,29 +170,29 @@ TEST_CASE("Move analysis: useful stock draws are not no-ops", "[move_analysis]")
     MoveList moves = state.legal_moves();
 
     REQUIRE_FALSE(moves.empty());
-    REQUIRE(moves.front().kind == MoveKind::StockDraw);
+    REQUIRE(moves.front().kind() == MoveKind::StockDraw);
     REQUIRE_FALSE(is_no_op_move(state, moves.front()));
 }
 
-TEST_CASE("Move analysis: stock cycle recurrence is treated as no-op", "[move_analysis]") {
+TEST_CASE("Move analysis: stock cycle recurrence is treated as productive, event when it is not", "[move_analysis]") {
     GameState start = GameState::from_deck(make_stock_cycle_no_op_deck(), GameConfig(3, true));
     GameState state = start;
 
     while (state.stock_size() > 0) {
         MoveList moves = state.legal_moves();
         REQUIRE_FALSE(moves.empty());
-        REQUIRE(moves.front().kind == MoveKind::StockDraw);
+        REQUIRE(moves.front().kind() == MoveKind::StockDraw);
+        
         state = state.apply_move(moves.front());
     }
 
     Move recycle(
         PileId(PileKind::Waste, 0),
         PileId(PileKind::Stock, 0),
-        MoveKind::StockRecycle,
         state.waste_size());
 
     REQUIRE(state.is_legal(recycle));
-    REQUIRE(is_no_op_move(state, recycle));
+    REQUIRE_FALSE(is_no_op_move(state, recycle));
 
     GameState recycled = state.apply_move(recycle);
     REQUIRE(recycled == start);
@@ -205,7 +204,6 @@ TEST_CASE("Move analysis: illegal moves are treated as no-ops", "[move_analysis]
     Move illegal;
     illegal.source = PileId(PileKind::Tableau, 0);
     illegal.target = PileId(PileKind::Tableau, 0);
-    illegal.kind = MoveKind::TableauToTableau;
     illegal.card_count = 1;
 
     REQUIRE(is_no_op_move(state, illegal));
@@ -230,7 +228,7 @@ TEST_CASE("Move analysis: T-to-T moves revealing face-down cards are not no-ops"
     MoveList moves = state.legal_moves();
 
     for (const auto& move : moves) {
-        if (move.kind == MoveKind::TableauToTableau) {
+        if (move.kind() == MoveKind::TableauToTableau) {
             GameState after = state.apply_move(move);
             
             // Check if this move reveals face-down cards
@@ -254,7 +252,7 @@ TEST_CASE("Move analysis: W-to-F moves are never no-ops", "[move_analysis]") {
     MoveList moves = state.legal_moves();
 
     for (const auto& move : moves) {
-        if (move.kind == MoveKind::WasteToFoundation) {
+        if (move.kind() == MoveKind::WasteToFoundation) {
             REQUIRE_FALSE(is_no_op_move(state, move));
         }
     }
@@ -265,7 +263,7 @@ TEST_CASE("Move analysis: T-to-F moves are never no-ops", "[move_analysis]") {
     MoveList moves = state.legal_moves();
 
     for (const auto& move : moves) {
-        if (move.kind == MoveKind::TableauToFoundation) {
+        if (move.kind() == MoveKind::TableauToFoundation) {
             REQUIRE_FALSE(is_no_op_move(state, move));
         }
     }
@@ -276,7 +274,7 @@ TEST_CASE("Move analysis: W-to-T moves are never no-ops", "[move_analysis]") {
     MoveList moves = state.legal_moves();
 
     for (const auto& move : moves) {
-        if (move.kind == MoveKind::WasteToTableau) {
+        if (move.kind() == MoveKind::WasteToTableau) {
             REQUIRE_FALSE(is_no_op_move(state, move));
         }
     }
@@ -298,7 +296,7 @@ TEST_CASE("Move analysis: DFS correctly handles repeated evaluations with cachin
         
         // Find equivalent move in state2
         for (const auto& m2 : moves2) {
-            if (m2.kind == move.kind && 
+            if (m2.kind() == move.kind() && 
                 m2.source == move.source && 
                 m2.target == move.target && 
                 m2.card_count == move.card_count) {
@@ -340,7 +338,7 @@ TEST_CASE("Move analysis: tableau moves without progress have DFS evaluation", "
 
     int tableau_moves_checked = 0;
     for (const auto& move : moves) {
-        if (move.kind == MoveKind::TableauToTableau) {
+        if (move.kind() == MoveKind::TableauToTableau) {
             GameState after = state.apply_move(move);
             
             // Check if this move doesn't reveal cards (would bypass DFS)
@@ -371,7 +369,7 @@ TEST_CASE("Move analysis: stock operations remain unchanged", "[move_analysis]")
     GameState state = GameState::from_deck(make_stock_cycle_no_op_deck(), GameConfig(3, true));
     MoveList moves = state.legal_moves();
 
-    if (!moves.empty() && moves.front().kind == MoveKind::StockDraw) {
+    if (!moves.empty() && moves.front().kind() == MoveKind::StockDraw) {
         REQUIRE(is_no_op_move(state, moves.front()));
     }
 }
@@ -393,7 +391,6 @@ TEST_CASE("Move analysis: user-provided tricky sequence (seed 10)", "[move_analy
         Move m;
         m.source = PileId(PileKind::Tableau, src);
         m.target = PileId(PileKind::Foundation, fidx);
-        m.kind = MoveKind::TableauToFoundation;
         m.card_count = 1;
         return m;
     };
@@ -401,7 +398,6 @@ TEST_CASE("Move analysis: user-provided tricky sequence (seed 10)", "[move_analy
         Move m;
         m.source = PileId(PileKind::Tableau, src);
         m.target = PileId(PileKind::Tableau, tgt);
-        m.kind = MoveKind::TableauToTableau;
         m.card_count = cnt;
         return m;
     };
@@ -409,7 +405,6 @@ TEST_CASE("Move analysis: user-provided tricky sequence (seed 10)", "[move_analy
         Move m;
         m.source = PileId(PileKind::Waste, 0);
         m.target = PileId(PileKind::Tableau, tgt);
-        m.kind = MoveKind::WasteToTableau;
         m.card_count = 1;
         return m;
     };
@@ -417,7 +412,6 @@ TEST_CASE("Move analysis: user-provided tricky sequence (seed 10)", "[move_analy
         Move m;
         m.source = PileId(PileKind::Waste, 0);
         m.target = PileId(PileKind::Foundation, f);
-        m.kind = MoveKind::WasteToFoundation;
         m.card_count = 1;
         return m;
     };
@@ -425,7 +419,6 @@ TEST_CASE("Move analysis: user-provided tricky sequence (seed 10)", "[move_analy
         Move m;
         m.source = PileId(PileKind::Stock, 0);
         m.target = PileId(PileKind::Waste, 0);
-        m.kind = MoveKind::StockDraw;
         m.card_count = state.config().cards_per_draw();
         return m;
     };
@@ -433,7 +426,6 @@ TEST_CASE("Move analysis: user-provided tricky sequence (seed 10)", "[move_analy
         Move m;
         m.source = PileId(PileKind::Waste, 0);
         m.target = PileId(PileKind::Stock, 0);
-        m.kind = MoveKind::StockRecycle;
         m.card_count = state.waste_size();
         return m;
     };
@@ -496,7 +488,7 @@ TEST_CASE("Move analysis: user-provided tricky sequence (seed 10)", "[move_analy
     // There should be exactly one non-no-op Tableau->Foundation move: T1->F2
     std::vector<Move> non_noop_ttf;
     for (const auto& m : moves) {
-        if (m.kind == MoveKind::TableauToFoundation) {
+        if (m.kind() == MoveKind::TableauToFoundation) {
             if (!is_no_op_move(state, m)) {
                 non_noop_ttf.push_back(m);
             }
@@ -509,7 +501,7 @@ TEST_CASE("Move analysis: user-provided tricky sequence (seed 10)", "[move_analy
     
     bool tested = false;
     for (const auto& move : moves) {
-        if (move.kind != MoveKind::TableauToTableau) continue;
+        if (move.kind() != MoveKind::TableauToTableau) continue;
         bool r1 = is_no_op_move(state, move);
         bool r2 = is_no_op_move(state, move);
         REQUIRE(r1 == r2);
@@ -532,7 +524,6 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T2->T6)", "[move_
         Move m;
         m.source = PileId(PileKind::Tableau, src);
         m.target = PileId(PileKind::Foundation, fidx);
-        m.kind = MoveKind::TableauToFoundation;
         m.card_count = 1;
         return m;
     };
@@ -540,7 +531,6 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T2->T6)", "[move_
         Move m;
         m.source = PileId(PileKind::Tableau, src);
         m.target = PileId(PileKind::Tableau, tgt);
-        m.kind = MoveKind::TableauToTableau;
         m.card_count = cnt;
         return m;
     };
@@ -548,7 +538,6 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T2->T6)", "[move_
         Move m;
         m.source = PileId(PileKind::Waste, 0);
         m.target = PileId(PileKind::Tableau, tgt);
-        m.kind = MoveKind::WasteToTableau;
         m.card_count = 1;
         return m;
     };
@@ -556,7 +545,6 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T2->T6)", "[move_
         Move m;
         m.source = PileId(PileKind::Waste, 0);
         m.target = PileId(PileKind::Foundation, f);
-        m.kind = MoveKind::WasteToFoundation;
         m.card_count = 1;
         return m;
     };
@@ -564,7 +552,6 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T2->T6)", "[move_
         Move m;
         m.source = PileId(PileKind::Stock, 0);
         m.target = PileId(PileKind::Waste, 0);
-        m.kind = MoveKind::StockDraw;
         m.card_count = state.config().cards_per_draw();
         return m;
     };
@@ -572,7 +559,6 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T2->T6)", "[move_
         Move m;
         m.source = PileId(PileKind::Waste, 0);
         m.target = PileId(PileKind::Stock, 0);
-        m.kind = MoveKind::StockRecycle;
         m.card_count = state.waste_size();
         return m;
     };
@@ -644,7 +630,7 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T2->T6)", "[move_
     
     std::vector<Move> non_noop_ttt;
     for (const auto& m : moves) {
-        if (m.kind == MoveKind::TableauToTableau) {
+        if (m.kind() == MoveKind::TableauToTableau) {
             if (!is_no_op_move(state, m)) {
                 non_noop_ttt.push_back(m);
             }
@@ -669,7 +655,6 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T4->T1(4))", "[mo
         Move m;
         m.source = PileId(PileKind::Tableau, src);
         m.target = PileId(PileKind::Foundation, fidx);
-        m.kind = MoveKind::TableauToFoundation;
         m.card_count = 1;
         return m;
     };
@@ -677,7 +662,6 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T4->T1(4))", "[mo
         Move m;
         m.source = PileId(PileKind::Tableau, src);
         m.target = PileId(PileKind::Tableau, tgt);
-        m.kind = MoveKind::TableauToTableau;
         m.card_count = cnt;
         return m;
     };
@@ -685,7 +669,6 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T4->T1(4))", "[mo
         Move m;
         m.source = PileId(PileKind::Waste, 0);
         m.target = PileId(PileKind::Tableau, tgt);
-        m.kind = MoveKind::WasteToTableau;
         m.card_count = 1;
         return m;
     };
@@ -693,7 +676,6 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T4->T1(4))", "[mo
         Move m;
         m.source = PileId(PileKind::Waste, 0);
         m.target = PileId(PileKind::Foundation, f);
-        m.kind = MoveKind::WasteToFoundation;
         m.card_count = 1;
         return m;
     };
@@ -701,7 +683,6 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T4->T1(4))", "[mo
         Move m;
         m.source = PileId(PileKind::Stock, 0);
         m.target = PileId(PileKind::Waste, 0);
-        m.kind = MoveKind::StockDraw;
         m.card_count = state.config().cards_per_draw();
         return m;
     };
@@ -709,7 +690,6 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T4->T1(4))", "[mo
         Move m;
         m.source = PileId(PileKind::Waste, 0);
         m.target = PileId(PileKind::Stock, 0);
-        m.kind = MoveKind::StockRecycle;
         m.card_count = state.waste_size();
         return m;
     };
@@ -810,7 +790,7 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T4->T1(4))", "[mo
 
     std::vector<Move> non_noop_ttt;
     for (const auto& m : moves) {
-        if (m.kind == MoveKind::TableauToTableau && !is_no_op_move(state, m)) {
+        if (m.kind() == MoveKind::TableauToTableau && !is_no_op_move(state, m)) {
             non_noop_ttt.push_back(m);
         }
     }
@@ -834,7 +814,6 @@ TEST_CASE("Move analysis: edge case seed 89565164 (non-no-op T3->T2(6))", "[move
         Move m;
         m.source = PileId(PileKind::Tableau, src);
         m.target = PileId(PileKind::Foundation, fidx);
-        m.kind = MoveKind::TableauToFoundation;
         m.card_count = 1;
         return m;
     };
@@ -842,7 +821,6 @@ TEST_CASE("Move analysis: edge case seed 89565164 (non-no-op T3->T2(6))", "[move
         Move m;
         m.source = PileId(PileKind::Tableau, src);
         m.target = PileId(PileKind::Tableau, tgt);
-        m.kind = MoveKind::TableauToTableau;
         m.card_count = cnt;
         return m;
     };
@@ -850,7 +828,6 @@ TEST_CASE("Move analysis: edge case seed 89565164 (non-no-op T3->T2(6))", "[move
         Move m;
         m.source = PileId(PileKind::Waste, 0);
         m.target = PileId(PileKind::Tableau, tgt);
-        m.kind = MoveKind::WasteToTableau;
         m.card_count = 1;
         return m;
     };
@@ -858,7 +835,6 @@ TEST_CASE("Move analysis: edge case seed 89565164 (non-no-op T3->T2(6))", "[move
         Move m;
         m.source = PileId(PileKind::Waste, 0);
         m.target = PileId(PileKind::Foundation, f);
-        m.kind = MoveKind::WasteToFoundation;
         m.card_count = 1;
         return m;
     };
@@ -866,7 +842,6 @@ TEST_CASE("Move analysis: edge case seed 89565164 (non-no-op T3->T2(6))", "[move
         Move m;
         m.source = PileId(PileKind::Stock, 0);
         m.target = PileId(PileKind::Waste, 0);
-        m.kind = MoveKind::StockDraw;
         m.card_count = state.config().cards_per_draw();
         return m;
     };
@@ -874,7 +849,6 @@ TEST_CASE("Move analysis: edge case seed 89565164 (non-no-op T3->T2(6))", "[move
         Move m;
         m.source = PileId(PileKind::Waste, 0);
         m.target = PileId(PileKind::Stock, 0);
-        m.kind = MoveKind::StockRecycle;
         m.card_count = state.waste_size();
         return m;
     };
@@ -966,7 +940,7 @@ TEST_CASE("Move analysis: edge case seed 89565164 (non-no-op T3->T2(6))", "[move
     // Collect non-no-op tableau moves
     std::vector<Move> non_noop_ttt;
     for (const auto& m : moves) {
-        if (m.kind == MoveKind::TableauToTableau && !is_no_op_move(state, m)) {
+        if (m.kind() == MoveKind::TableauToTableau && !is_no_op_move(state, m)) {
             non_noop_ttt.push_back(m);
         }
     }

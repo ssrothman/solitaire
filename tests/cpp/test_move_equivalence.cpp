@@ -169,7 +169,6 @@ TEST_CASE("Move equivalence: pruning preserves solvability", "[move_equivalence]
         for (const auto& original : all_moves) {
             if (pruned.source == original.source && 
                 pruned.target == original.target &&
-                pruned.kind == original.kind &&
                 pruned.card_count == original.card_count) {
                 found = true;
                 break;

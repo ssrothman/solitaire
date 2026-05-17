@@ -186,7 +186,7 @@ void DFS_worker(const solitaire::GameState& current_state,
     ReasonCode productive_reason = 0; // Default to invalid reason code
 
     for (const auto& move : avail_moves) {
-        if (move.kind == solitaire::MoveKind::TableauToFoundation &&
+        if (move.target.kind() == solitaire::PileKind::Foundation &&
             !foundations_accessible[move.target.index()]) {
             productive = true;
             // Use positive reason codes for new foundation access, 
@@ -210,7 +210,7 @@ void DFS_worker(const solitaire::GameState& current_state,
     }
 
     for (const auto& move : avail_moves) {
-        if (move.kind != solitaire::MoveKind::TableauToTableau) {
+        if (!(move.source.kind() == solitaire::PileKind::Tableau && move.target.kind() == solitaire::PileKind::Tableau)) {
             continue;
         }
         if (obviously_productive_TtoT_move(move, current_state)) {
@@ -279,7 +279,6 @@ bool is_stock_cycle_no_op(const solitaire::GameState& original_state) {
             solitaire::Move draw(
                 solitaire::PileId(solitaire::PileKind::Stock, 0),
                 solitaire::PileId(solitaire::PileKind::Waste, 0),
-                solitaire::MoveKind::StockDraw,
                 current.config().cards_per_draw());
                 
             // Should always be legal because we have already checked stock_size > 0
@@ -292,7 +291,6 @@ bool is_stock_cycle_no_op(const solitaire::GameState& original_state) {
             solitaire::Move recycle(
                 solitaire::PileId(solitaire::PileKind::Waste, 0),
                 solitaire::PileId(solitaire::PileKind::Stock, 0),
-                solitaire::MoveKind::StockRecycle,
                 current.waste_size());
 
             // Should always be legal 
@@ -305,10 +303,8 @@ bool is_stock_cycle_no_op(const solitaire::GameState& original_state) {
         const auto legal = current.legal_moves();
 
         for (const auto& m : legal) {
-            if (m.kind == solitaire::MoveKind::WasteToTableau ||
-                m.kind == solitaire::MoveKind::WasteToFoundation) {
-
-                return false;  // Found a move that can make progress, so not a no-op
+            if (m.source.kind() == solitaire::PileKind::Waste && m.target.kind() != solitaire::PileKind::Stock) {
+                return false;  // Found a waste-origin move, so not a no-op
             }
         }
 
@@ -355,9 +351,8 @@ MoveList all_non_no_op_moves(const GameState& state, const bool detailed_checks)
         
         // Waste-to-* moves: always progress
         // And so do tableau-to-foundation moves
-        if (move.kind == MoveKind::WasteToTableau || 
-            move.kind == MoveKind::WasteToFoundation ||
-            move.kind == MoveKind::TableauToFoundation) {
+        if (move.source.kind() == solitaire::PileKind::Waste || 
+            move.target.kind() == solitaire::PileKind::Foundation) {
 
             non_no_ops.push_back(move);
 #ifdef DEBUG_MOVE_ANALYSIS
@@ -366,9 +361,12 @@ MoveList all_non_no_op_moves(const GameState& state, const bool detailed_checks)
             continue;
         }
         
+        if (move.target.kind() == solitaire::PileKind::Stock) { //stock recycle
+            non_no_ops.push_back(move); // recycle is always productive if it's legal    
+        }
         
         // Stock Draw/Recycle: check for cycles
-        if (move.kind == MoveKind::StockDraw || move.kind == MoveKind::StockRecycle) {
+        if (move.source.kind() == solitaire::PileKind::Stock) { // stock draw
             if (detailed_checks) {
                 if (!is_stock_cycle_no_op(state)) {
 #ifdef DEBUG_MOVE_ANALYSIS
@@ -384,7 +382,7 @@ MoveList all_non_no_op_moves(const GameState& state, const bool detailed_checks)
         }
         
         // Tableau-to-Tableau: check for obvious productivity
-        if (move.kind == MoveKind::TableauToTableau) {
+        if (move.source.kind() == solitaire::PileKind::Tableau && move.target.kind() == solitaire::PileKind::Tableau) {
             // Exposes face-down: always progress
             if (obviously_productive_TtoT_move(move, state)) {
 #ifdef DEBUG_MOVE_ANALYSIS
@@ -430,7 +428,7 @@ MoveList all_non_no_op_moves(const GameState& state, const bool detailed_checks)
             std::array<bool, NUM_FOUNDATIONS> foundations_accessible;
             foundations_accessible.fill(false);
             for (const auto& move : moves) {
-                if (move.kind == MoveKind::TableauToFoundation) {
+                if (move.target.kind() == solitaire::PileKind::Foundation) {
                     foundations_accessible[move.target.index()] = true;
                 }
             }
