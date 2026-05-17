@@ -59,11 +59,11 @@ std::string move_to_notation(const Move& move) {
     std::string src_not = move.source.to_string();
     std::string tgt_not = move.target.to_string();
     
-    switch (move.kind) {
+    switch (move.kind()) {
         case solitaire::MoveKind::StockDraw:
             oss << "Draw";
             if (move.card_count > 1) {
-                oss << "(" << move.card_count << ")";
+                oss << "(" << (unsigned int) move.card_count << ")";
             }
             break;
         case solitaire::MoveKind::StockRecycle:
@@ -72,7 +72,7 @@ std::string move_to_notation(const Move& move) {
         case solitaire::MoveKind::TableauToTableau:
             oss << src_not << "→" << tgt_not;
             if (move.card_count > 1) {
-                oss << "(" << move.card_count << ")";
+                oss << "(" << (unsigned int) move.card_count << ")";
             }
             break;
         case solitaire::MoveKind::TableauToFoundation:
@@ -91,10 +91,10 @@ std::string move_to_notation(const Move& move) {
 
     std::optional<Move> move_from_notation(std::string_view notation) {
         if (notation == "Draw") {
-            return Move(PileId(PileKind::Stock, 0), PileId(PileKind::Waste, 0), MoveKind::StockDraw, 1);
+            return Move(PileId(PileKind::Stock, 0), PileId(PileKind::Waste, 0), 1);
         }
         if (notation == "Recycle") {
-            return Move(PileId(PileKind::Waste, 0), PileId(PileKind::Stock, 0), MoveKind::StockRecycle, 0);
+            return Move(PileId(PileKind::Waste, 0), PileId(PileKind::Stock, 0), 0);
         }
 
         if (notation.starts_with("Draw(") && notation.ends_with(')')) {
@@ -102,7 +102,7 @@ std::string move_to_notation(const Move& move) {
             if (!count || *count <= 0) {
                 return std::nullopt;
             }
-            return Move(PileId(PileKind::Stock, 0), PileId(PileKind::Waste, 0), MoveKind::StockDraw, *count);
+            return Move(PileId(PileKind::Stock, 0), PileId(PileKind::Waste, 0), *count);
         }
 
         // Try to find arrow: first try "->" (2 bytes) then "→" (UTF-8, 3 bytes)
@@ -141,29 +141,11 @@ std::string move_to_notation(const Move& move) {
             return std::nullopt;
         }
 
-        MoveKind kind;
-        if (src->kind() == PileKind::Tableau && tgt->kind() == PileKind::Tableau) {
-            kind = MoveKind::TableauToTableau;
-        } else if (src->kind() == PileKind::Tableau && tgt->kind() == PileKind::Foundation) {
-            kind = MoveKind::TableauToFoundation;
-            if (card_count != 1) {
-                return std::nullopt;
-            }
-        } else if (src->kind() == PileKind::Waste && tgt->kind() == PileKind::Tableau) {
-            kind = MoveKind::WasteToTableau;
-            if (card_count != 1) {
-                return std::nullopt;
-            }
-        } else if (src->kind() == PileKind::Waste && tgt->kind() == PileKind::Foundation) {
-            kind = MoveKind::WasteToFoundation;
-            if (card_count != 1) {
-                return std::nullopt;
-            }
-        } else {
+        Move result(*src, *tgt, card_count);
+        if (!result.is_valid()) {
             return std::nullopt;
         }
-
-        return Move(*src, *tgt, kind, card_count);
+        return result;
     }
 
 }  // namespace solitaire::util

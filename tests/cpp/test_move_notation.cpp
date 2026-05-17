@@ -16,6 +16,7 @@ TEST_CASE("Move notation round trips") {
 
     for (const auto& move : moves) {
         const std::string notation = util::move_to_notation(move);
+        
         INFO(notation);
         auto parsed = util::move_from_notation(notation);
         REQUIRE(parsed.has_value());
