@@ -6,7 +6,7 @@
 
 namespace solitaire::util {
 
-    MoveList all_non_no_op_moves(const GameState& state);
+    MoveList all_non_no_op_moves(const GameState& state, bool detailed_checks);
 
 }  // namespace solitaire::util
 

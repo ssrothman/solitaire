@@ -72,9 +72,6 @@ void CompleteDfsSolver::dfs_explore_(SearchState& initial_state,
 
         // Check if visited
         std::size_t state_hash = current.state.hash();
-        if (visited.count(state_hash)) {
-            continue;
-        }
         visited.insert(state_hash);
         stats.nodes_explored++;
         stats.max_depth = std::max(stats.max_depth, current.depth);
@@ -83,11 +80,6 @@ void CompleteDfsSolver::dfs_explore_(SearchState& initial_state,
         if (current.state.is_won()) {
             solution = current.path;
             return;
-        }
-
-        // Check loss condition
-        if (current.state.is_lost()) {
-            continue;
         }
 
         // Generate legal moves
@@ -103,6 +95,10 @@ void CompleteDfsSolver::dfs_explore_(SearchState& initial_state,
         for (int i = static_cast<int>(legal.size()) - 1; i >= 0; --i) {
             const auto& move = legal[i];
             GameState next = current.state.apply_move(move);
+            size_t next_hash = next.hash();
+            if (visited.count(next_hash)) {
+                continue;
+            }
 
             SearchState next_state;
             next_state.state = next;

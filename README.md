@@ -27,6 +27,8 @@ The top-level CMake project supports these options:
 |--------|---------|---------|
 | `BUILD_TESTS` | `ON` | Build the C++ Catch2 test executables |
 | `BUILD_PYTHON` | `ON` | Build the pybind11 module and install the Python package files |
+| `BUILD_BENCHMARKS` | `OFF` | Build the C++ benchmark programs |
+| `ENABLE_CALLGRIND_SUPPORT` | `OFF` | Build with debug-friendly compiler flags for Valgrind/Callgrind |
 
 Examples:
 
@@ -46,6 +48,14 @@ cmake .. -DBUILD_TESTS=OFF -DBUILD_PYTHON=ON -DCMAKE_BUILD_TYPE=Release
 ```bash
 cd build
 ctest --verbose
+```
+
+### Profile with Valgrind
+
+To profile CPU hot paths, use 
+```bash
+valgrind --tool=callgrind --callgrind-out-file=callgrind.out ./benchmark_completeDFS
+kcachegrind callgrind.out # GUI to explore the output
 ```
 
 ### Build Python Bindings (Editable Install)

@@ -263,7 +263,7 @@ void DFS_worker(const solitaire::GameState& current_state,
 
 bool is_stock_cycle_no_op(const solitaire::GameState& original_state) {
 
-    if (original_state.waste_size() % original_state.config().cards_per_draw != 0) {
+    if (original_state.waste_size() % original_state.config().cards_per_draw() != 0) {
         return false;  // Not aligned with draw cycle, can't be a no-op
     }
     
@@ -280,7 +280,7 @@ bool is_stock_cycle_no_op(const solitaire::GameState& original_state) {
                 solitaire::PileId(solitaire::PileKind::Stock, 0),
                 solitaire::PileId(solitaire::PileKind::Waste, 0),
                 solitaire::MoveKind::StockDraw,
-                current.config().cards_per_draw);
+                current.config().cards_per_draw());
                 
             // Should always be legal because we have already checked stock_size > 0
             assert(current.is_legal(draw));  
@@ -314,7 +314,7 @@ bool is_stock_cycle_no_op(const solitaire::GameState& original_state) {
 
         // If we do not have unlimited recycle and we've run out of stock
         // Then we can not make progress, so this is a no-op
-        if (current.waste_size() == 0 && !current.config().unlimited_recycle) {
+        if (current.waste_size() == 0 && !current.config().unlimited_recycle()) {
             return true;
         }        
     }
@@ -322,7 +322,7 @@ bool is_stock_cycle_no_op(const solitaire::GameState& original_state) {
     // If I've set up the logic correctly, we have now returned to the original position 
     // And we haven't found any waste-origin moves, so this is a no-op
 
-    assert(current.same_position(original_state));
+    assert(current == original_state);
     return true;
 }
 
@@ -334,7 +334,7 @@ namespace solitaire::util {
 // Main API: Return list of all NON-no-op moves (moves that make progress)
 // ============================================================================
 
-MoveList all_non_no_op_moves(const GameState& state) {
+MoveList all_non_no_op_moves(const GameState& state, const bool detailed_checks) {
     MoveList non_no_ops;
     
     // Precompute if revealing a new empty tableau will be productive
@@ -369,13 +369,18 @@ MoveList all_non_no_op_moves(const GameState& state) {
         
         // Stock Draw/Recycle: check for cycles
         if (move.kind == MoveKind::StockDraw || move.kind == MoveKind::StockRecycle) {
-            if (!is_stock_cycle_no_op(state)) {
+            if (detailed_checks) {
+                if (!is_stock_cycle_no_op(state)) {
 #ifdef DEBUG_MOVE_ANALYSIS
-                printf("Productive stock cycle: %s\n", move_to_notation(move).c_str());
+                    printf("Productive stock cycle: %s\n", move_to_notation(move).c_str());
 #endif
-                non_no_ops.push_back(move);
+                    non_no_ops.push_back(move);
+                }
+                continue;
+            } else {
+                non_no_ops.push_back(move); // Assume all stock moves are productive without detailed checks
+                continue;
             }
-            continue;
         }
         
         // Tableau-to-Tableau: check for obvious productivity
@@ -418,72 +423,77 @@ MoveList all_non_no_op_moves(const GameState& state) {
     // Phase 2: DFS analysis for nontrivial T-to-T moves
     // ========================================================================
     
-    if (!nontrivial_ttt.empty()) {
-        // Pre-compute: which T-to-F destinations are accessible from initial state?
-        std::array<bool, NUM_FOUNDATIONS> foundations_accessible;
-        foundations_accessible.fill(false);
-        for (const auto& move : moves) {
-            if (move.kind == MoveKind::TableauToFoundation) {
-                foundations_accessible[move.target.index()] = true;
+    if (detailed_checks) {
+
+        if (!nontrivial_ttt.empty()) {
+            // Pre-compute: which T-to-F destinations are accessible from initial state?
+            std::array<bool, NUM_FOUNDATIONS> foundations_accessible;
+            foundations_accessible.fill(false);
+            for (const auto& move : moves) {
+                if (move.kind == MoveKind::TableauToFoundation) {
+                    foundations_accessible[move.target.index()] = true;
+                }
+            }
+    #ifdef DEBUG_MOVE_ANALYSIS
+            printf("Foundations: ");
+            for (int i = 0; i < NUM_FOUNDATIONS; ++i) {
+                printf("%d ", foundations_accessible[i] ? 1 : 0);
+            }
+            printf("\n");
+    #endif
+                    
+            // Run DFS for each nontrivial T-to-T move
+            BoardStateCache cache;
+            ProductiveStateSet productive_states;
+
+            for (const auto& move : nontrivial_ttt) {
+    #ifdef DEBUG_MOVE_ANALYSIS
+                printf("Starting DFS for move: %s\n", move_to_notation(move).c_str());
+    #endif
+                GameState next = state.apply_move(move);
+
+                size_t next_repr = next.hash();
+                const auto [root_node, created] = get_or_create_node(
+                    cache, productive_states, 
+                    next_repr, 1, 
+                    move
+                );
+                if (!created) {
+                    continue;
+                }
+
+                DFS_worker(
+                    next,
+                    foundations_accessible,
+                    1,
+                    move,
+                    root_node,
+                    cache,
+                    productive_states
+                );
+            }
+
+            // Collect all moves that lead to productive states
+            std::unordered_set<size_t> emitted_moves;
+            for (const auto& productive : productive_states) {
+                const auto& initial_move = cache[productive.second]->initial_move;
+
+                const size_t move_key = initial_move.hash();
+
+    #ifdef DEBUG_MOVE_ANALYSIS
+                printf("No-op move %lu for reason code %d\n",
+                    move_key,
+                    productive.first
+                );
+    #endif
+
+                if (emitted_moves.insert(move_key).second) {
+                    non_no_ops.push_back(initial_move);
+                }
             }
         }
-#ifdef DEBUG_MOVE_ANALYSIS
-        printf("Foundations: ");
-        for (int i = 0; i < NUM_FOUNDATIONS; ++i) {
-            printf("%d ", foundations_accessible[i] ? 1 : 0);
-        }
-        printf("\n");
-#endif
-                
-        // Run DFS for each nontrivial T-to-T move
-        BoardStateCache cache;
-        ProductiveStateSet productive_states;
-
-        for (const auto& move : nontrivial_ttt) {
-#ifdef DEBUG_MOVE_ANALYSIS
-            printf("Starting DFS for move: %s\n", move_to_notation(move).c_str());
-#endif
-            GameState next = state.apply_move(move);
-
-            size_t next_repr = next.hash();
-            const auto [root_node, created] = get_or_create_node(
-                cache, productive_states, 
-                next_repr, 1, 
-                move
-            );
-            if (!created) {
-                continue;
-            }
-
-            DFS_worker(
-                next,
-                foundations_accessible,
-                1,
-                move,
-                root_node,
-                cache,
-                productive_states
-            );
-        }
-
-        // Collect all moves that lead to productive states
-        std::unordered_set<size_t> emitted_moves;
-        for (const auto& productive : productive_states) {
-            const auto& initial_move = cache[productive.second]->initial_move;
-
-            const size_t move_key = initial_move.hash();
-
-#ifdef DEBUG_MOVE_ANALYSIS
-            printf("No-op move %lu for reason code %d\n",
-                move_key,
-                productive.first
-            );
-#endif
-
-            if (emitted_moves.insert(move_key).second) {
-                non_no_ops.push_back(initial_move);
-            }
-        }
+    } else {
+        non_no_ops.insert(non_no_ops.end(), nontrivial_ttt.begin(), nontrivial_ttt.end());
     }
     
     return non_no_ops;

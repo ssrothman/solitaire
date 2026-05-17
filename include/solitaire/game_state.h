@@ -39,9 +39,9 @@ public:
     // ========================================================================
 
     // Tableau queries  
-    int tableau_face_down_count(int pile) const;
+    int tableau_face_down_count(int pile) const; // How many face-down cards in pile
     Card tableau_top(int pile) const;  // Get top face-up card, or empty Card if none
-    Card tableau_bottom(int pile) const;
+    Card tableau_bottom(int pile) const; // Get bottom face-up card, or empty Card if none
     int tableau_face_up_count(int pile) const;  // How many face-up cards in pile
 
     // Foundation queries
@@ -72,7 +72,7 @@ public:
 
     // Check specific move types
     bool can_move_to_foundation(const Card& card) const;
-    bool can_move_to_tableau(const Card& card, int tableau_idx) const;
+    bool can_move_to_tableau(const Card& card, uint8_t tableau_idx) const;
 
     // ========================================================================
     // Move Application
@@ -95,9 +95,6 @@ public:
 
     bool operator==(const GameState& other) const;
     bool operator!=(const GameState& other) const { return !(*this == other); }
-
-    // Compare only gameplay-relevant state, ignoring turn/cycle metadata.
-    bool same_position(const GameState& other) const;
 
     // Hash for visited-state tracking in solvers
     std::size_t hash() const;
@@ -126,7 +123,7 @@ private:
     // Configuration
     GameConfig _config;
 
-    // Metadata for solver state hashing
+    // Metadata
     int _turn_count = 0;        // Increments each stock cycle
 
     // ========================================================================

@@ -16,6 +16,22 @@ endif()
 option(BUILD_TESTS "Build C++ unit tests" ON)
 option(BUILD_PYTHON "Build Python bindings" ON)
 option(BUILD_BENCHMARKS "Build C++ performance benchmarks" OFF)
+option(ENABLE_CALLGRIND_SUPPORT "Build with debug-friendly flags for Valgrind/Callgrind" OFF)
+
+if(ENABLE_CALLGRIND_SUPPORT)
+    message(STATUS "Enabling Callgrind-friendly compiler flags")
+
+    if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+        set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
+    endif()
+
+    if(MSVC)
+        add_compile_options(/Zi /Od /Ob0 /Oy-)
+        add_link_options(/DEBUG)
+    else()
+        add_compile_options(-O0 -g -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-inline)
+    endif()
+endif()
 
 # Include CMake utilities
 include(GNUInstallDirs)

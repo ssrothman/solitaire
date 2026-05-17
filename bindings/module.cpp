@@ -147,8 +147,8 @@ PYBIND11_MODULE(_solitaire_binding, m) {
     py::class_<solitaire::GameConfig>(m, "GameConfig")
         .def(py::init<>())
         .def(py::init<int, bool>(), py::arg("cards_per_draw"), py::arg("unlimited_recycle") = solitaire::DEFAULT_UNLIMITED_RECYCLE)
-        .def_readwrite("cards_per_draw", &solitaire::GameConfig::cards_per_draw)
-        .def_readwrite("unlimited_recycle", &solitaire::GameConfig::unlimited_recycle);
+        .def("cards_per_draw", &solitaire::GameConfig::cards_per_draw)
+        .def("unlimited_recycle", &solitaire::GameConfig::unlimited_recycle);
 
     py::class_<solitaire::SearchStats>(m, "SearchStats")
         .def(py::init<>())
@@ -222,7 +222,7 @@ PYBIND11_MODULE(_solitaire_binding, m) {
     m.def("move_to_notation", &solitaire::util::move_to_notation);
     m.def("move_from_notation", &solitaire::util::move_from_notation);
     m.def("all_non_no_op_moves", &solitaire::util::all_non_no_op_moves,
-          py::arg("state"));
+          py::arg("state"), py::arg("run_TtoT_DFS"));
 
     py::class_<solitaire::solvers::IPolicy, PyIPolicy, std::shared_ptr<solitaire::solvers::IPolicy>>(m, "IPolicy")
         .def("choose_move", &solitaire::solvers::IPolicy::choose_move)

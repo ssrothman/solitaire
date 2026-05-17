@@ -100,7 +100,7 @@ bool GameState::has_waste() const {
 MoveList GameState::legal_moves() const {
     MoveList moves;
 
-    // Stock moves have highest priority
+    // Stock moves 
     _generate_stock_moves(moves);
 
     // Tableau to foundation
@@ -178,46 +178,28 @@ bool GameState::is_legal(const Move& move) const {
         }
 
         case MoveKind::StockDraw:
-            return move.card_count == _config.cards_per_draw && !_stock.empty();
+            return move.card_count == _config.cards_per_draw() && !_stock.empty();
 
         case MoveKind::StockRecycle:
             return _stock.empty() &&
                    !_waste.empty() &&
-                   _config.unlimited_recycle;
+                   _config.unlimited_recycle();
     }
 
     return false;
 }
 
 bool GameState::can_move_to_foundation(const Card& card) const {
-    int suit_idx = static_cast<int>(card.suit());
-    Card top = _foundation[suit_idx];
-    const int top_rank = static_cast<int>(top.rank());
-    const int card_rank = static_cast<int>(card.rank());
+    const Card& top = _foundation[static_cast<uint8_t>(card.suit())];
 
-    if (top_rank == 0) {
-        // Empty foundation only accepts an Ace of matching suit.
-        return card_rank == static_cast<int>(Rank::Ace);
-    }
-
-    // Next rank must match and be one higher
-    if (top_rank + 1 == card_rank) {
-        return true;
-    }
-
-    return false;
+    return (static_cast<uint8_t>(card.rank()) == static_cast<uint8_t>(top.rank()) + 1);
 }
 
-bool GameState::can_move_to_tableau(const Card& card, int tableau_idx) const {
+bool GameState::can_move_to_tableau(const Card& card, uint8_t tableau_idx) const {
     const auto& pile = _tableau_face_up[tableau_idx];
 
-    if (pile.empty()) {
-        // Only Kings can go to empty pile
-        return card.rank() == Rank::King;
-    }
-
-    // Card must be one rank lower and opposite color
-    return card.can_follow_in_tableau(pile.front());
+    return (pile.empty() && card.rank() == Rank::King) ||
+           (!pile.empty() && card.can_follow_in_tableau(pile.front()));
 }
 
 // ============================================================================
@@ -280,7 +262,7 @@ bool GameState::is_lost() const {
 
     // Check if all remaining moves are no-ops (no progress possible)
     // all_no_op_moves() returns NON-no-ops, so if empty, all moves are no-ops
-    MoveList productive_moves = util::all_non_no_op_moves(*this);
+    MoveList productive_moves = util::all_non_no_op_moves(*this, true);
     return productive_moves.empty();
 }
 
@@ -314,44 +296,6 @@ bool GameState::operator==(const GameState& other) const {
         return false;
     }
     if (_waste != other._waste) {
-        return false;
-    }
-
-    return true;
-}
-
-bool GameState::same_position(const GameState& other) const {
-    // Compare tableau
-    for (int i = 0; i < NUM_TABLEAU_PILES; ++i) {
-        if (_tableau_face_up[i] != other._tableau_face_up[i]) {
-            return false;
-        }
-        if (_tableau_face_down_cards[i] != other._tableau_face_down_cards[i]) {
-            return false;
-        }
-        if (_tableau_face_down[i] != other._tableau_face_down[i]) {
-            return false;
-        }
-    }
-
-    // Compare foundation
-    for (int i = 0; i < NUM_FOUNDATIONS; ++i) {
-        if (_foundation[i] != other._foundation[i]) {
-            return false;
-        }
-    }
-
-    // Compare stock and waste
-    if (_stock != other._stock) {
-        return false;
-    }
-    if (_waste != other._waste) {
-        return false;
-    }
-
-    // Compare configuration because it changes move semantics.
-    if (_config.cards_per_draw != other._config.cards_per_draw ||
-        _config.unlimited_recycle != other._config.unlimited_recycle) {
         return false;
     }
 
@@ -521,7 +465,7 @@ void GameState::_draw_from_stock() {
     }
 
     // Draw cards_per_draw cards from stock to waste
-    int draw_count = _config.cards_per_draw;
+    int draw_count = _config.cards_per_draw();
     for (int i = 0; i < draw_count && !_stock.empty(); ++i) {
         Card card = _stock.back();
         _stock.pop_back();
@@ -530,7 +474,7 @@ void GameState::_draw_from_stock() {
 }
 
 void GameState::_recycle_stock() {
-    if (!_config.unlimited_recycle) {
+    if (!_config.unlimited_recycle()) {
         return;
     }
 
@@ -630,9 +574,9 @@ void GameState::_generate_stock_moves(MoveList& moves) const {
         m.source = PileId(PileKind::Stock, 0);
         m.target = PileId(PileKind::Waste, 0);
         m.kind = MoveKind::StockDraw;
-        m.card_count = _config.cards_per_draw;
+        m.card_count = _config.cards_per_draw();
         moves.push_back(m);
-    } else if (!_waste.empty() && _config.unlimited_recycle) {
+    } else if (!_waste.empty() && _config.unlimited_recycle()) {
         // Can recycle waste to stock
         Move m;
         m.source = PileId(PileKind::Waste, 0);

@@ -13,8 +13,10 @@ MoveList CompoundPruningStrategy::filter(const GameState& state,
 
 class ProductiveMovePruningStrategy : public IPruningStrategy {
 public:
+    ProductiveMovePruningStrategy(bool run_TtoT_DFS) : _run_TtoT_DFS(run_TtoT_DFS) {}
+
     MoveList filter(const GameState& state, const MoveList& moves) const override {
-        MoveList productive_moves = util::all_non_no_op_moves(state);
+        MoveList productive_moves = util::all_non_no_op_moves(state, _run_TtoT_DFS);
         std::unordered_set<size_t> productive_hashes;
         for (const auto& move : productive_moves) {
             productive_hashes.insert(move.hash());
@@ -28,13 +30,17 @@ public:
         }
         return filtered;
     }
+private:
+    bool _run_TtoT_DFS;
 };
 
 std::unique_ptr<CompoundPruningStrategy> make_pruning_strategy(const SolverConfig& cfg) {
     auto strategy = std::make_unique<CompoundPruningStrategy>();
 
     if (cfg.enable_productive_move_pruning) {
-        strategy->add_strategy(std::make_unique<ProductiveMovePruningStrategy>());
+        strategy->add_strategy(std::make_unique<ProductiveMovePruningStrategy>(
+            cfg.productive_move_pruning_TtoT_DFS
+        ));
     }
 
     if (strategy->empty()) {

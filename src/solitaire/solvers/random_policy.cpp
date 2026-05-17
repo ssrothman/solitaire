@@ -4,7 +4,7 @@ namespace solitaire::solvers {
 
 RandomPolicy::RandomPolicy(unsigned int seed) : rng_(seed) {}
 
-Move RandomPolicy::choose_move(const GameState& state,
+Move RandomPolicy::choose_move([[maybe_unused]] const GameState& state,
                                 const MoveList& legal_moves) {
     if (legal_moves.empty()) {
         return Move();

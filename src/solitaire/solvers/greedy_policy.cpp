@@ -2,8 +2,8 @@
 
 namespace solitaire::solvers {
 
-Move GreedyPolicy::choose_move(const GameState& state,
-                                const MoveList& legal_moves) {
+Move GreedyPolicy::choose_move([[maybe_unused]] const GameState& state,
+                               const MoveList& legal_moves) {
     // Priority order from plan.tex:
     // 1. Move cards to foundation from tableau
     // 2. Move cards to foundation from waste

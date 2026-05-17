@@ -96,8 +96,7 @@ bool Move::is_valid() const {
 
         case MoveKind::StockRecycle:
             return source == PileId(PileKind::Waste, 0) &&
-                   target == PileId(PileKind::Stock, 0) &&
-                   card_count >= 0;
+                   target == PileId(PileKind::Stock, 0);    
     }
 
     return false;

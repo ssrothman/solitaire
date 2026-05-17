@@ -4,7 +4,7 @@
 namespace solitaire::solvers {
 
 PolicyResult HeuristicRunner::run(const GameState& initial, IPolicy& policy,
-                                   const SolverConfig& cfg) const {
+                                   [[maybe_unused]] const SolverConfig& cfg) const {
     PolicyResult result;
     auto start_time = std::chrono::high_resolution_clock::now();
 

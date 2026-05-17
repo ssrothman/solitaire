@@ -24,6 +24,7 @@ enum class Suit : std::uint8_t {
 };
 
 enum class Rank : std::uint8_t {
+    Invalid = 0,  // Used for empty cards
     Ace = 1,
     Two = 2,
     Three = 3,
@@ -55,7 +56,7 @@ class Card {
     std::uint8_t _data;
 
 public:
-    constexpr Card() : _data(0) {}  // Ace of Hearts
+    constexpr Card() : _data(0) {}  // Empty card
     constexpr explicit Card(std::uint8_t d) : _data(d) {}
     constexpr Card(Suit s, Rank r) 
         : _data((static_cast<std::uint8_t>(s) << 4) | static_cast<std::uint8_t>(r)) {}
@@ -65,7 +66,7 @@ public:
     }
 
     constexpr Rank rank() const {
-        return static_cast<Rank>(_data & 0x0F);
+        return static_cast<Rank>(_data & 0b00001111);
     }
 
     constexpr Color color() const {
@@ -92,6 +93,7 @@ public:
 
     std::string to_string() const;
 };
+static_assert(sizeof(Card) == 1);  // Ensure Card is exactly 1 byte for compact storage
 
 // ============================================================================
 // Move Types
@@ -145,22 +147,20 @@ public:
 
     std::string to_string() const;
 };
+static_assert(sizeof(PileId) == 1);  // Ensure PileId is exactly 1 byte for compact storage
 
 struct Move {
     PileId source;
     PileId target;
     MoveKind kind;
-    int card_count;  // For tableau sequences, how many cards to move
+    std::uint8_t card_count;  // For tableau sequences, how many cards to move
 
     Move() : source(), target(), kind(MoveKind::StockDraw), card_count(0) {}
-    Move(PileId src, PileId tgt, MoveKind k, int cnt)
+    Move(PileId src, PileId tgt, MoveKind k, std::uint8_t cnt)
         : source(src), target(tgt), kind(k), card_count(cnt) {}
 
     // Checks move shape only (pile kinds/indices/card_count), not game-state legality.
     bool is_valid() const;
-
-    // Notation is generated on-demand via util::move_to_notation()
-    std::string to_string() const;  // Implemented in util/move_notation.cpp
 
     // Equality operators for testing and hashing
     bool operator==(const Move& other) const {
@@ -170,6 +170,8 @@ struct Move {
                card_count == other.card_count;
     }
 
+    std::string to_string() const;
+
     size_t hash() const {
         size_t h = source.raw_data();
         h = h << 8 | target.raw_data();
@@ -178,6 +180,7 @@ struct Move {
         return h;
     } 
 };
+static_assert(sizeof(Move) == 4);  // Ensure Move is exactly 4 bytes for compact storage
 
 using MoveList = std::vector<Move>;
 
@@ -185,14 +188,19 @@ using MoveList = std::vector<Move>;
 // Configuration
 // ============================================================================
 
+// packed into a single uint8_t
+// format: bits 0-2 = cards_per_draw (0-7), bit 3 = unlimited_recycle (0 or 1), bits 4-7 unused
 struct GameConfig {
-    int cards_per_draw = DEFAULT_CARDS_PER_DRAW;  // How many cards to draw from stock at once
-    bool unlimited_recycle = DEFAULT_UNLIMITED_RECYCLE;  // Whether stock can be recycled unlimited times
+    uint8_t _data = (DEFAULT_UNLIMITED_RECYCLE << 3) | (DEFAULT_CARDS_PER_DRAW); // Internal packed representation
+
+    uint8_t cards_per_draw() const { return _data & 0b00000111; }
+    bool unlimited_recycle() const { return (_data & 0b00001000) != 0; }
 
     GameConfig() = default;
     explicit GameConfig(int cpd, bool ur = DEFAULT_UNLIMITED_RECYCLE)
-        : cards_per_draw(cpd), unlimited_recycle(ur) {}
+        : _data((ur << 3) | (cpd & 0b00000111)) {}
 };
+static_assert(sizeof(GameConfig) == 1);  // Ensure GameConfig is exactly 1 byte for compact storage
 
 // ============================================================================
 // Solver Result Types
@@ -235,6 +243,7 @@ struct SolverConfig {
     int max_nodes = DEFAULT_SOLVER_MAX_NODES;                          // Max nodes to explore (100M)
     int seed = DEFAULT_SOLVER_SEED;                                    // RNG seed for randomized solvers
     bool enable_productive_move_pruning = true;  // Prune moves that don't progress towards solution
+    bool productive_move_pruning_TtoT_DFS = false;  // Whether to run DFS analysis for T-to-T moves in pruning
 };
 
 }  // namespace solitaire
@@ -256,6 +265,13 @@ template <>
 struct hash<solitaire::PileId> {
     std::size_t operator()(const solitaire::PileId& p) const {
         return static_cast<std::size_t>(p.raw_data());
+    }
+};
+
+template <>
+struct hash<solitaire::Move> {
+    std::size_t operator()(const solitaire::Move& m) const {
+        return m.hash();
     }
 };
 

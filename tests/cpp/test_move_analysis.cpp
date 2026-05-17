@@ -14,7 +14,7 @@ namespace {
 // Helper: check if a move is a no-op using the new API
 // all_non_no_op_moves() returns NON-no-ops, so a move is a no-op if it's NOT in the list
 bool is_no_op_move(const GameState& state, const Move& move) {
-    MoveList non_no_ops = all_non_no_op_moves(state);
+    MoveList non_no_ops = all_non_no_op_moves(state, true);
     for (const auto& m : non_no_ops) {
         if (m.source == move.source &&
             m.target == move.target &&
@@ -196,7 +196,6 @@ TEST_CASE("Move analysis: stock cycle recurrence is treated as no-op", "[move_an
     REQUIRE(is_no_op_move(state, recycle));
 
     GameState recycled = state.apply_move(recycle);
-    REQUIRE(recycled.same_position(start));
     REQUIRE(recycled == start);
 }
 
@@ -427,7 +426,7 @@ TEST_CASE("Move analysis: user-provided tricky sequence (seed 10)", "[move_analy
         m.source = PileId(PileKind::Stock, 0);
         m.target = PileId(PileKind::Waste, 0);
         m.kind = MoveKind::StockDraw;
-        m.card_count = state.config().cards_per_draw;
+        m.card_count = state.config().cards_per_draw();
         return m;
     };
     auto Recycle = [&]() {
@@ -566,7 +565,7 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T2->T6)", "[move_
         m.source = PileId(PileKind::Stock, 0);
         m.target = PileId(PileKind::Waste, 0);
         m.kind = MoveKind::StockDraw;
-        m.card_count = state.config().cards_per_draw;
+        m.card_count = state.config().cards_per_draw();
         return m;
     };
     auto Recycle = [&]() {
@@ -648,16 +647,7 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T2->T6)", "[move_
         if (m.kind == MoveKind::TableauToTableau) {
             if (!is_no_op_move(state, m)) {
                 non_noop_ttt.push_back(m);
-                // DEBUG: Show which T-to-T moves are being flagged
-                // std::cerr << "T" << m.source.index() << "->T" << m.target.index() << " count=" << m.card_count << " is_non_noop\n";
             }
-        }
-    }
-
-    // If we have more than 1, show them all for debugging
-    if (non_noop_ttt.size() != 1) {
-        for (const auto& m : non_noop_ttt) {
-            // std::cerr << "  Non-no-op: T" << m.source.index() << "->T" << m.target.index() << " count=" << m.card_count << "\n";
         }
     }
 
@@ -712,7 +702,7 @@ TEST_CASE("Move analysis: edge case seed 1658024654 (non-no-op T4->T1(4))", "[mo
         m.source = PileId(PileKind::Stock, 0);
         m.target = PileId(PileKind::Waste, 0);
         m.kind = MoveKind::StockDraw;
-        m.card_count = state.config().cards_per_draw;
+        m.card_count = state.config().cards_per_draw();
         return m;
     };
     auto Recycle = [&]() {
@@ -877,7 +867,7 @@ TEST_CASE("Move analysis: edge case seed 89565164 (non-no-op T3->T2(6))", "[move
         m.source = PileId(PileKind::Stock, 0);
         m.target = PileId(PileKind::Waste, 0);
         m.kind = MoveKind::StockDraw;
-        m.card_count = state.config().cards_per_draw;
+        m.card_count = state.config().cards_per_draw();
         return m;
     };
     auto Recycle = [&]() {

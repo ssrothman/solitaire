@@ -32,7 +32,7 @@ TABLEAU_LINE_RE = re.compile(r"^(\s*T\d+:\s*)(.*?)(\s*\[\d+ hidden\])?$")
 # Helper: check if a move is a no-op using the new API
 # all_non_no_op_moves() returns NON-no-ops, so a move is a no-op if it's NOT in the list
 def _is_no_op_move(state: GameState, move: Move) -> bool:
-    non_no_ops = all_non_no_op_moves(state)
+    non_no_ops = all_non_no_op_moves(state, True)
     for m in non_no_ops:
         if (m.source == move.source and
             m.target == move.target and
@@ -181,7 +181,7 @@ def _print_cheat_moves(state: GameState) -> None:
         print("No legal moves.")
         return
     
-    non_no_ops = all_non_no_op_moves(state)
+    non_no_ops = all_non_no_op_moves(state, True)
     progress_moves = [
         (index, move)
         for index, move in enumerate(moves, start=1)
